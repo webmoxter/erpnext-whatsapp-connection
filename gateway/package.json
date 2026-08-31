@@ -1,0 +1,20 @@
+{
+  "name": "@erpfin360/erpnext-whatsapp-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "type": "module",
+  "description": "Private site-isolated transport for ERPNext WhatsApp Connection by ERPFin360.com",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "pino": "9.9.5",
+    "qrcode": "1.5.4"
+  }
+}

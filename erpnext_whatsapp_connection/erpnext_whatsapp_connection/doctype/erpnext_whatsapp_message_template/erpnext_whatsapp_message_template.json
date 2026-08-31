@@ -1,0 +1,30 @@
+{
+ "actions": [],
+ "autoname": "field:template_name",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["template_name","enabled","is_default","target_section","reference_type","document_type","target_column","report_name","company","content_section","message_template"],
+ "fields": [
+  {"fieldname":"template_name","fieldtype":"Data","in_list_view":1,"label":"Template Name","reqd":1,"unique":1},
+  {"default":"1","fieldname":"enabled","fieldtype":"Check","in_list_view":1,"label":"Enabled"},
+  {"default":"0","fieldname":"is_default","fieldtype":"Check","in_list_view":1,"label":"Default"},
+  {"fieldname":"target_section","fieldtype":"Section Break","label":"Target"},
+  {"fieldname":"reference_type","fieldtype":"Select","in_list_view":1,"label":"Reference Type","options":"Document\nReport","reqd":1},
+  {"depends_on":"eval:doc.reference_type=='Document'","fieldname":"document_type","fieldtype":"Link","label":"Document Type","options":"DocType"},
+  {"fieldname":"target_column","fieldtype":"Column Break"},
+  {"depends_on":"eval:doc.reference_type=='Report'","fieldname":"report_name","fieldtype":"Link","label":"Report","options":"Report"},
+  {"description":"Leave empty to make the template available to every company on this site.","fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
+  {"fieldname":"content_section","fieldtype":"Section Break","label":"Message"},
+  {"description":"Jinja template. Available values are documented by the add-on and are permission-checked.","fieldname":"message_template","fieldtype":"Code","label":"Message Template","options":"Jinja","reqd":1}
+ ],
+ "module":"ERPNext WhatsApp Connection",
+ "name":"ERPNext WhatsApp Message Template",
+ "permissions":[
+  {"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"ERPNext WhatsApp Manager","write":1},
+  {"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","write":1},
+  {"read":1,"role":"ERPNext WhatsApp Sender"}
+ ],
+ "sort_field":"modified",
+ "sort_order":"DESC",
+ "track_changes":1
+}

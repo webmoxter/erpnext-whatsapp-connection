@@ -1,0 +1,43 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "provider_section", "enabled", "provider", "connection_status", "qr_section", "qr_display",
+  "official_section", "official_phone_number_id", "official_column", "official_business_account_id", "official_api_version", "webhook_url",
+  "delivery_section", "throttle_seconds", "maximum_retries", "require_submitted_documents",
+  "status_section", "last_connected_at", "status_column", "last_disconnected_at", "last_error", "last_event_id"
+ ],
+ "fields": [
+  {"fieldname":"provider_section","fieldtype":"Section Break","label":"WhatsApp Provider"},
+  {"default":"0","fieldname":"enabled","fieldtype":"Check","label":"Enable WhatsApp Transport"},
+  {"default":"Linked Device","description":"Linked Device uses a manually scanned QR. Official API uses the site's Meta WhatsApp Business Cloud API account.","fieldname":"provider","fieldtype":"Select","label":"Provider","options":"Linked Device\nOfficial API","reqd":1},
+  {"default":"Disconnected","fieldname":"connection_status","fieldtype":"Select","label":"Connection Status","options":"Disconnected\nQR Ready\nConnecting\nConnected\nReconnecting\nAuthentication expired\nError","read_only":1},
+  {"depends_on":"eval:doc.provider=='Linked Device'","fieldname":"qr_section","fieldtype":"Section Break","label":"Linked Device Pairing"},
+  {"depends_on":"eval:doc.provider=='Linked Device'","fieldname":"qr_display","fieldtype":"HTML","label":"QR Code"},
+  {"depends_on":"eval:doc.provider=='Official API'","fieldname":"official_section","fieldtype":"Section Break","label":"Official WhatsApp Business Cloud API"},
+  {"depends_on":"eval:doc.provider=='Official API'","fieldname":"official_phone_number_id","fieldtype":"Data","label":"Phone Number ID","read_only":1},
+  {"fieldname":"official_column","fieldtype":"Column Break"},
+  {"depends_on":"eval:doc.provider=='Official API'","fieldname":"official_business_account_id","fieldtype":"Data","label":"WhatsApp Business Account ID","read_only":1},
+  {"default":"v26.0","depends_on":"eval:doc.provider=='Official API'","fieldname":"official_api_version","fieldtype":"Data","label":"Meta Graph API Version","read_only":1},
+  {"depends_on":"eval:doc.provider=='Official API'","description":"Configure this URL in Meta. The verification token remains write-only in the gateway.","fieldname":"webhook_url","fieldtype":"Data","label":"Webhook URL","read_only":1},
+  {"fieldname":"delivery_section","fieldtype":"Section Break","label":"Safe Delivery Controls"},
+  {"default":"10","description":"Minimum interval between submissions for this site (10–300 seconds).","fieldname":"throttle_seconds","fieldtype":"Int","label":"Throttle (Seconds)"},
+  {"default":"3","description":"Automatic retry attempts after the initial attempt (0–5).","fieldname":"maximum_retries","fieldtype":"Int","label":"Automatic Retries"},
+  {"default":"1","description":"Recommended. Draft and cancelled accounting documents cannot be sent.","fieldname":"require_submitted_documents","fieldtype":"Check","label":"Require Submitted Documents"},
+  {"fieldname":"status_section","fieldtype":"Section Break","label":"Connection Details"},
+  {"fieldname":"last_connected_at","fieldtype":"Datetime","label":"Last Connected At","read_only":1},
+  {"fieldname":"status_column","fieldtype":"Column Break"},
+  {"fieldname":"last_disconnected_at","fieldtype":"Datetime","label":"Last Disconnected At","read_only":1},
+  {"fieldname":"last_error","fieldtype":"Small Text","label":"Last Non-secret Error","read_only":1},
+  {"default":"0","fieldname":"last_event_id","fieldtype":"Int","hidden":1,"label":"Last Gateway Event ID","read_only":1}
+ ],
+ "issingle": 1,
+ "module": "ERPNext WhatsApp Connection",
+ "name": "ERPNext WhatsApp Settings",
+ "permissions": [
+  {"create":1,"read":1,"role":"ERPNext WhatsApp Manager","write":1},
+  {"create":1,"read":1,"role":"System Manager","write":1}
+ ],
+ "track_changes": 1
+}
