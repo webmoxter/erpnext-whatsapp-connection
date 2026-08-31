@@ -1,10 +1,11 @@
 {
-  "name": "@erpfin360/erpnext-whatsapp-gateway",
-  "version": "0.1.0",
+  "name": "@tngsol/erpnext-whatsapp-gateway",
+  "version": "0.1.1",
   "private": true,
   "packageManager": "pnpm@11.19.0",
   "type": "module",
-  "description": "Private site-isolated transport for ERPNext WhatsApp Connection by ERPFin360.com",
+  "description": "Private site-isolated transport for ERPNext WhatsApp Connection by TNGSol.com",
+  "author": "TNGSol.com",
   "engines": {
     "node": ">=24.0.0"
   },

@@ -1,7 +1,7 @@
 # Repository instructions
 
 This repository is a generic Frappe/ERPNext WhatsApp add-on. Keep it independent
-from ERPFin360 and from every tenant, company, deployment host, phone number,
+from every consuming application, tenant, company, deployment host, phone number,
 credential, logo, and private DocType.
 
 Enforce document and report permissions on the server. Never trust a hidden

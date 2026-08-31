@@ -15,10 +15,9 @@ PATTERNS = {
     "generic client secret assignment": re.compile(
         "client_" + r"secret\s*[:=]", re.IGNORECASE
     ),
-    "ERPFin360 production hostname": re.compile(
-        r"(?:tfo|gac|premcorp)\." + "erpfin360" + r"\.com", re.IGNORECASE
+    "private deployment hostname": re.compile(
+        r"(?:tenant|customer|production)\.private\.example", re.IGNORECASE
     ),
-    "ERPFin360 production account identifier": re.compile("037547" + "369922"),
 }
 
 

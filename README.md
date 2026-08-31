@@ -1,6 +1,8 @@
-# ERPNext WhatsApp Connection by ERPFin360.com
+# ERPNext WhatsApp Connection by TNGSol.com
 
-> Independent third-party software maintained by ERPFin360.com. This project is not
+**Project owner, original Git initiator, and maintainer: [TNGSol.com](https://tngsol.com)**
+
+> Independent third-party software maintained by TNGSol.com. This project is not
 > affiliated with, sponsored by, or endorsed by Frappe Technologies, ERPNext,
 > Meta, or WhatsApp. Product names are used only to describe compatibility.
 
@@ -35,7 +37,7 @@ enter the Frappe database, Git repository, normal site backup, or PDF payload.
 ## Installation
 
 ```sh
-bench get-app --branch v0.1.0 https://github.com/webmoxter/erpnext-whatsapp-connection
+bench get-app --branch v0.1.1 https://github.com/webmoxter/erpnext-whatsapp-connection
 bench --site your-site.example install-app erpnext_whatsapp_connection
 ```
 

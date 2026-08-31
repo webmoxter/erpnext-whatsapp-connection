@@ -4,13 +4,19 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "erpnext-whatsapp-connection"
-authors = [{name = "ERPFin360.com"}]
+authors = [{name = "TNGSol.com"}]
+maintainers = [{name = "TNGSol.com"}]
 description = "Permission-checked WhatsApp document delivery for Frappe and ERPNext"
 requires-python = ">=3.14"
 readme = "README.md"
 license = {text = "GPL-3.0-only"}
 dynamic = ["version"]
 dependencies = []
+
+[project.urls]
+Homepage = "https://tngsol.com"
+Initiator = "https://tngsol.com"
+Source = "https://github.com/webmoxter/erpnext-whatsapp-connection"
 
 [tool.bench.frappe-dependencies]
 frappe = ">=16.0.0,<17.0.0"

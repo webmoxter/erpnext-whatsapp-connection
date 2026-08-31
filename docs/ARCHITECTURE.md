@@ -17,5 +17,5 @@ Custom applications may register document, report, and transport providers throu
 - `erpnext_whatsapp_report_adapter_providers`
 - `erpnext_whatsapp_transport_adapter_providers`
 
-ERPFin360-specific DocTypes and reports belong in ERPFin360's private adapter and
-must never be copied into this repository.
+Product-specific DocTypes and reports belong in each consuming application's
+private adapter and must never be copied into this repository.
