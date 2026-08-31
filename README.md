@@ -21,8 +21,9 @@ independent from a particular WhatsApp library. The official Frappe WhatsApp
 application can be integrated through this contract after it publishes a stable,
 versioned release; it is not silently downloaded from an untagged development branch.
 
-The project is under private development until its security, license, migration,
-and clean-history audits pass. Do not expose a development repository publicly.
+Releases are published from signed semantic-version tags. GitHub release
+immutability, checksummed Python/source artifacts, a digest-pinned gateway image,
+and a machine-readable release manifest form the supported supply-chain contract.
 
 ## Design boundary
 
@@ -31,15 +32,27 @@ record. The private gateway has no public TCP port and only accepts signed
 requests over a Unix-domain socket. Credentials and linked-device state never
 enter the Frappe database, Git repository, normal site backup, or PDF payload.
 
-## Planned installation
+## Installation
 
 ```sh
-bench get-app https://github.com/webmoxter/erpnext-whatsapp-connection
+bench get-app --branch v0.1.0 https://github.com/webmoxter/erpnext-whatsapp-connection
 bench --site your-site.example install-app erpnext_whatsapp_connection
 ```
 
-The gateway container and two secret files must also be installed using the
-versioned deployment example that will ship with the first audited release.
+For production, verify the immutable release and its assets before installation,
+pin the gateway by digest from `release-manifest.json`, and follow
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md). Never install from a moving branch.
+
+## Compatibility and upgrades
+
+- Supported: Frappe 16 and ERPNext 16 on Python 3.14 and Node 24.
+- Each site owns separate settings, templates, history, credentials, and gateway state.
+- Upgrade with a protected backup, a signed release, `bench update --reset`, and
+  `bench --site <site> migrate`.
+- Extension hooks are versioned public API. Breaking changes require a new major version.
+
+See [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md),
+[`docs/RELEASES.md`](docs/RELEASES.md), and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License and provider notice
 

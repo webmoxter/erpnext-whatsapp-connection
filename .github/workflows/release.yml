@@ -1,0 +1,103 @@
+name: Publish immutable add-on release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+
+permissions:
+  contents: write
+  checks: read
+  packages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.ref_name }}
+      GATEWAY_IMAGE: ghcr.io/${{ github.repository_owner }}/erpnext-whatsapp-connection-gateway
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Require repository release immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api -H "X-GitHub-Api-Version: 2026-03-10"
+          "repos/${GITHUB_REPOSITORY}/immutable-releases" >/dev/null
+      - name: Verify signed release identity
+        run: |
+          bash scripts/verify-release-tag.sh "$TAG"
+          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          test "$(python -c 'import erpnext_whatsapp_connection as app; print(app.__version__)')" = "${TAG#v}"
+      - name: Require exact-commit CI provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          checks="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs")"
+          for required in \
+            "Frappe application contract" \
+            "Gateway tests" \
+            "Real Frappe ERPNext installation"; do
+            jq -e --arg name "$required" \
+              '.check_runs | any(.name == $name and .conclusion == "success")' \
+              <<<"$checks" >/dev/null
+          done
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Validate and build application artifacts
+        run: |
+          python -m pip install --disable-pip-version-check build
+          python -m compileall -q erpnext_whatsapp_connection scripts tests
+          python -m unittest discover -s tests -v
+          python scripts/scan-public-history.py
+          python -m build
+          git archive --format=tar.gz --prefix="erpnext-whatsapp-connection-${TAG#v}/" \
+            -o "dist/erpnext-whatsapp-connection-${TAG#v}-source.tar.gz" "$TAG"
+      - name: Validate gateway
+        working-directory: gateway
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.19.0 --activate
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm test
+          node --check src/server.mjs
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Refuse image identity reuse and publish gateway
+        run: |
+          release="${TAG#v}"
+          ! docker buildx imagetools inspect "$GATEWAY_IMAGE:$release" >/dev/null 2>&1
+          docker buildx build gateway --pull --push \
+            --build-arg CONNECTOR_RELEASE="$release" \
+            --build-arg CONNECTOR_REVISION="$GITHUB_SHA" \
+            --build-arg CONNECTOR_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$GATEWAY_IMAGE:$release" \
+            --tag "$GATEWAY_IMAGE:sha-$GITHUB_SHA" \
+            --metadata-file gateway-image-metadata.json
+          digest="$(jq -r '."containerimage.digest"' gateway-image-metadata.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "GATEWAY_DIGEST=$digest" >> "$GITHUB_ENV"
+      - name: Build release manifest
+        run: |
+          python scripts/build-release-manifest.py "$TAG" "$GITHUB_SHA" \
+            "$GATEWAY_IMAGE@$GATEWAY_DIGEST" dist/*
+      - name: Publish immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf 'See CHANGELOG.md, docs/INSTALLATION.md, and release-manifest.json.\n' > release-notes.md
+          gh release create "$TAG" --verify-tag --draft --title "$TAG" \
+            --notes-file release-notes.md dist/* release-manifest.json
+          gh release edit "$TAG" --draft=false --latest

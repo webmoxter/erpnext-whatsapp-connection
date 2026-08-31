@@ -1,0 +1,17 @@
+ARG ERPNEXT_IMAGE=frappe/erpnext:v16.32.3@sha256:bea913b9e36edda078fe049c56a0cd28df9fc0e11e24ec2c469ce4da95abc572
+FROM ${ERPNEXT_IMAGE}
+
+USER root
+COPY --chown=frappe:frappe erpnext_whatsapp_connection \
+    /home/frappe/frappe-bench/apps/erpnext_whatsapp_connection/erpnext_whatsapp_connection
+COPY --chown=frappe:frappe pyproject.toml LICENSE README.md SECURITY.md \
+    /home/frappe/frappe-bench/apps/erpnext_whatsapp_connection/
+USER frappe
+
+RUN cd /home/frappe/frappe-bench \
+    && ./env/bin/pip install --no-cache-dir --editable apps/erpnext_whatsapp_connection \
+    && bench build --app erpnext_whatsapp_connection \
+    && mkdir -p assets/erpnext_whatsapp_connection \
+    && cp -a apps/erpnext_whatsapp_connection/erpnext_whatsapp_connection/public/. \
+        assets/erpnext_whatsapp_connection/
+
