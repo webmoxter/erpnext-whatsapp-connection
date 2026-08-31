@@ -3,6 +3,12 @@ name: Publish immutable add-on release
 on:
   push:
     tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed semantic-version tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,28 +21,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TAG: ${{ github.ref_name }}
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       GATEWAY_IMAGE: ghcr.io/${{ github.repository_owner }}/erpnext-whatsapp-connection-gateway
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Require repository release immutability
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Verify signed release identity
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh api -H "X-GitHub-Api-Version: 2026-03-10"
-          "repos/${GITHUB_REPOSITORY}/immutable-releases" >/dev/null
-      - name: Verify signed release identity
         run: |
           bash scripts/verify-release-tag.sh "$TAG"
-          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          source_commit="$(git rev-list -n 1 "$TAG")"
+          [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]]; then
+            test "$source_commit" = "$GITHUB_SHA"
+          fi
           test "$(python -c 'import erpnext_whatsapp_connection as app; print(app.__version__)')" = "${TAG#v}"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
       - name: Require exact-commit CI provenance
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          checks="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs")"
+          checks="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_COMMIT}/check-runs")"
           for required in \
             "Frappe application contract" \
             "Gateway tests" \
@@ -81,17 +90,17 @@ jobs:
           ! docker buildx imagetools inspect "$GATEWAY_IMAGE:$release" >/dev/null 2>&1
           docker buildx build gateway --pull --push \
             --build-arg CONNECTOR_RELEASE="$release" \
-            --build-arg CONNECTOR_REVISION="$GITHUB_SHA" \
+            --build-arg CONNECTOR_REVISION="$SOURCE_COMMIT" \
             --build-arg CONNECTOR_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag "$GATEWAY_IMAGE:$release" \
-            --tag "$GATEWAY_IMAGE:sha-$GITHUB_SHA" \
+            --tag "$GATEWAY_IMAGE:sha-$SOURCE_COMMIT" \
             --metadata-file gateway-image-metadata.json
           digest="$(jq -r '."containerimage.digest"' gateway-image-metadata.json)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "GATEWAY_DIGEST=$digest" >> "$GITHUB_ENV"
       - name: Build release manifest
         run: |
-          python scripts/build-release-manifest.py "$TAG" "$GITHUB_SHA" \
+          python scripts/build-release-manifest.py "$TAG" "$SOURCE_COMMIT" \
             "$GATEWAY_IMAGE@$GATEWAY_DIGEST" dist/*
       - name: Publish immutable GitHub release
         env:
@@ -101,3 +110,4 @@ jobs:
           gh release create "$TAG" --verify-tag --draft --title "$TAG" \
             --notes-file release-notes.md dist/* release-manifest.json
           gh release edit "$TAG" --draft=false --latest
+          test "$(gh release view "$TAG" --json isImmutable --jq .isImmutable)" = "true"

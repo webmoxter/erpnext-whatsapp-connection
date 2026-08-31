@@ -14,7 +14,7 @@ class RepositoryContractTest(unittest.TestCase):
         version = (ROOT / "erpnext_whatsapp_connection" / "__init__.py").read_text()
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
         self.assertIn('__version__ = "0.1.0"', version)
-        self.assertIn("immutable-releases", workflow)
+        self.assertIn("isImmutable", workflow)
         self.assertIn("verify-release-tag.sh", workflow)
         self.assertIn("release-manifest.json", workflow)
         self.assertIn("containerimage.digest", workflow)
@@ -24,6 +24,8 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertIn("corepack prepare pnpm@11.19.0 --activate", workflow)
         self.assertIn("pnpm install --frozen-lockfile --ignore-scripts", workflow)
         self.assertIn("Require exact-commit CI provenance", workflow)
+        self.assertIn("workflow_dispatch", workflow)
+        self.assertIn("SOURCE_COMMIT", workflow)
         self.assertIn("python scripts/scan-public-history.py", workflow)
 
     def test_release_manifest_is_deterministic_and_digest_pinned(self):
