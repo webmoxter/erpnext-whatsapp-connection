@@ -2,6 +2,11 @@
 
 This project follows Semantic Versioning.
 
+## 0.1.1
+
+- Establish TNGSol.com as the sole public project owner, original Git initiator,
+  product brand, and maintainer.
+
 ## 0.1.0
 
 - Add permission-checked WhatsApp delivery for supported ERPNext documents and reports.

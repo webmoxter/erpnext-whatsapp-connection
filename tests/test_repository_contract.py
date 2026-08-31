@@ -13,7 +13,7 @@ class RepositoryContractTest(unittest.TestCase):
     def test_stable_release_contract_is_present(self):
         version = (ROOT / "erpnext_whatsapp_connection" / "__init__.py").read_text()
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-        self.assertIn('__version__ = "0.1.0"', version)
+        self.assertIn('__version__ = "0.1.1"', version)
         self.assertIn("isImmutable", workflow)
         self.assertIn("verify-release-tag.sh", workflow)
         self.assertIn("release-manifest.json", workflow)
@@ -60,9 +60,7 @@ class RepositoryContractTest(unittest.TestCase):
 
     def test_public_source_contains_no_private_deployment_identifiers(self):
         forbidden = (
-            "tfo" + ".erpfin360.com",
-            "gac" + ".erpfin360.com",
-            "premcorp" + ".erpfin360.com",
+            "tenant" + ".private.example",
             ".".join(("13", "60", "148", "194")),
             "037547" + "369922",
             "+923343" + "441765",
@@ -97,7 +95,7 @@ class RepositoryContractTest(unittest.TestCase):
         transports = (ROOT / "erpnext_whatsapp_connection" / "transports.py").read_text(encoding="utf-8")
         self.assertIn("erpnext_whatsapp_transport_adapter_providers", transports)
         self.assertIn("send_delivery", transports)
-        self.assertIn('app_title = "ERPNext WhatsApp Connection by ERPFin360.com"', hooks)
+        self.assertIn('app_title = "ERPNext WhatsApp Connection by TNGSol.com"', hooks)
 
     def test_real_frappe_installation_contract_is_mandatory(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")

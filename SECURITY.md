@@ -1,6 +1,6 @@
 # Security policy
 
-Please report security vulnerabilities privately to `support@erpfin360.com`.
+Please report security vulnerabilities privately to `support@tngsol.com`.
 Do not open a public issue containing credentials, phone numbers, message bodies,
 QR payloads, authentication state, private PDFs, tenant names, or deployment details.
 

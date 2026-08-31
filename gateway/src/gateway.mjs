@@ -90,7 +90,7 @@ export class WhatsAppGateway {
       auth: auth.state,
       ...(version ? { version } : {}),
       logger: silentLogger,
-      browser: ['ERPNext WhatsApp Connection by ERPFin360.com', 'Chrome', '0.1.0'],
+      browser: ['ERPNext WhatsApp Connection by TNGSol.com', 'Chrome', '0.1.1'],
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
