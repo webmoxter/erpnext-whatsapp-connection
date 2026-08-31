@@ -21,6 +21,8 @@ jobs:
           cache: pip
       - run: python -m compileall -q erpnext_whatsapp_connection
       - run: python -m unittest discover -s tests -v
+      - run: python -m pip install --disable-pip-version-check build
+      - run: python -m build
 
   gateway:
     name: Gateway tests
@@ -34,9 +36,34 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: pnpm
-          cache-dependency-path: gateway/pnpm-lock.yaml
-      - run: corepack enable
-      - run: pnpm install --frozen-lockfile
+      - run: |
+          corepack enable
+          corepack prepare pnpm@11.19.0 --activate
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test
       - run: node --check src/server.mjs
+
+  integration:
+    name: Real Frappe ERPNext installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ADDON_IMAGE: erpnext-whatsapp-connection:ci-${{ github.sha }}
+      COMPOSE_PROJECT_NAME: erpnext-whatsapp-connection-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build exact supported application image
+        run: docker build --pull --file Dockerfile.integration --tag "$ADDON_IMAGE" .
+      - name: Install, repeat-migrate, and validate a real site
+        run: >-
+          timeout --signal=TERM --kill-after=30s 30m
+          docker compose -f compose.integration.yaml up
+          --abort-on-container-exit --exit-code-from acceptance acceptance
+      - name: Capture integration diagnostics
+        if: failure()
+        run: docker compose -f compose.integration.yaml logs --no-color configurator site-init acceptance
+      - name: Remove isolated integration resources
+        if: always()
+        run: |
+          docker compose -f compose.integration.yaml down --volumes --remove-orphans
+          docker image rm --force "$ADDON_IMAGE" >/dev/null 2>&1 || true

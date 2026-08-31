@@ -1,4 +1,7 @@
 import json
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +10,46 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepositoryContractTest(unittest.TestCase):
+    def test_stable_release_contract_is_present(self):
+        version = (ROOT / "erpnext_whatsapp_connection" / "__init__.py").read_text()
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+        self.assertIn('__version__ = "0.1.0"', version)
+        self.assertIn("immutable-releases", workflow)
+        self.assertIn("verify-release-tag.sh", workflow)
+        self.assertIn("release-manifest.json", workflow)
+        self.assertIn("containerimage.digest", workflow)
+        self.assertIn("--draft", workflow)
+        self.assertIn("--draft=false", workflow)
+        self.assertIn("bash scripts/verify-release-tag.sh", workflow)
+        self.assertIn("corepack prepare pnpm@11.19.0 --activate", workflow)
+        self.assertIn("pnpm install --frozen-lockfile --ignore-scripts", workflow)
+        self.assertIn("Require exact-commit CI provenance", workflow)
+        self.assertIn("python scripts/scan-public-history.py", workflow)
+
+    def test_release_manifest_is_deterministic_and_digest_pinned(self):
+        script = ROOT / "scripts" / "build-release-manifest.py"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            asset = root / "package.whl"
+            asset.write_bytes(b"audited-package")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "v0.1.0",
+                    "a" * 40,
+                    "ghcr.io/webmoxter/gateway@sha256:" + "b" * 64,
+                    str(asset),
+                ],
+                cwd=root,
+                check=True,
+            )
+            manifest = json.loads((root / "release-manifest.json").read_text())
+        self.assertEqual(manifest["schema_version"], 1)
+        self.assertEqual(manifest["release"], "0.1.0")
+        self.assertEqual(manifest["source_commit"], "a" * 40)
+        self.assertRegex(manifest["assets"]["package.whl"]["sha256"], r"^[0-9a-f]{64}$")
+
     def test_all_json_files_parse(self):
         for filename in ROOT.rglob("*.json"):
             if "node_modules" in filename.parts or ".git" in filename.parts:
@@ -53,6 +96,17 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertIn("erpnext_whatsapp_transport_adapter_providers", transports)
         self.assertIn("send_delivery", transports)
         self.assertIn('app_title = "ERPNext WhatsApp Connection by ERPFin360.com"', hooks)
+
+    def test_real_frappe_installation_contract_is_mandatory(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        compose = (ROOT / "compose.integration.yaml").read_text(encoding="utf-8")
+        dockerfile = (ROOT / "Dockerfile.integration").read_text(encoding="utf-8")
+        self.assertIn("Real Frappe ERPNext installation", workflow)
+        self.assertIn("--exit-code-from acceptance", workflow)
+        self.assertIn("install-app erpnext_whatsapp_connection", compose)
+        self.assertEqual(compose.count("bench --site integration.local migrate"), 2)
+        self.assertIn("validate_installation", compose)
+        self.assertIn("frappe/erpnext:v16.32.3@sha256:", dockerfile)
 
     def test_delivery_history_masks_recipient_and_stores_encrypted_value(self):
         filename = (

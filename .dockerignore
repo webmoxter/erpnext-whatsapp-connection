@@ -1,0 +1,10 @@
+.git
+.github
+dist
+node_modules
+gateway/node_modules
+__pycache__
+*.pyc
+*.log
+sites
+
