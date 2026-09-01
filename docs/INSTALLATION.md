@@ -14,7 +14,7 @@ installing or upgrading the application.
 ## 3. Install the Frappe application
 
 ```sh
-bench get-app --branch v0.1.1 https://github.com/webmoxter/erpnext-whatsapp-connection
+bench get-app --branch v0.1.2 https://github.com/webmoxter/erpnext-whatsapp-connection
 bench --site your-site.example install-app erpnext_whatsapp_connection
 bench --site your-site.example migrate
 ```

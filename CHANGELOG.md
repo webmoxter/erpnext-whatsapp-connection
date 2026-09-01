@@ -2,6 +2,11 @@
 
 This project follows Semantic Versioning.
 
+## 0.1.2
+
+- Normalize gateway submission and acknowledgement timestamps before storing
+  them in Frappe Datetime fields.
+
 ## 0.1.1
 
 - Establish TNGSol.com as the sole public project owner, original Git initiator,
