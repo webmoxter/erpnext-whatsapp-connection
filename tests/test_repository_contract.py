@@ -14,7 +14,7 @@ class RepositoryContractTest(unittest.TestCase):
     def test_stable_release_contract_is_present(self):
         version = (ROOT / "erpnext_whatsapp_connection" / "__init__.py").read_text()
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-        self.assertIn('__version__ = "0.1.2"', version)
+        self.assertIn('__version__ = "0.1.3"', version)
         self.assertIn("isImmutable", workflow)
         self.assertIn("verify-release-tag.sh", workflow)
         self.assertIn("release-manifest.json", workflow)
@@ -90,6 +90,15 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertIn("_validate_print_format", api)
         self.assertIn("is_private=1", api)
         self.assertIn("hashlib.sha256(content).hexdigest()", outbound)
+
+    def test_report_adapters_may_supply_a_validated_pdf_renderer(self):
+        api = (ROOT / "erpnext_whatsapp_connection" / "api.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('renderer = adapter.get("pdf_renderer")', api)
+        self.assertIn("frappe.get_attr(renderer)(report_name, filters)", api)
+        self.assertIn('content.startswith(b"%PDF")', api)
+        self.assertIn('elif not column.get("hidden"):', api)
 
     def test_frappe_16_print_calls_use_supported_keywords(self):
         api = (ROOT / "erpnext_whatsapp_connection" / "api.py").read_text(

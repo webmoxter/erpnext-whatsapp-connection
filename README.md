@@ -37,7 +37,7 @@ enter the Frappe database, Git repository, normal site backup, or PDF payload.
 ## Installation
 
 ```sh
-bench get-app --branch v0.1.2 https://github.com/webmoxter/erpnext-whatsapp-connection
+bench get-app --branch v0.1.3 https://github.com/webmoxter/erpnext-whatsapp-connection
 bench --site your-site.example install-app erpnext_whatsapp_connection
 ```
 
