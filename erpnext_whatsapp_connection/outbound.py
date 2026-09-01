@@ -7,6 +7,7 @@ from frappe import _
 from frappe.utils import add_to_date, cint, now_datetime
 
 from erpnext_whatsapp_connection.gateway_client import WhatsAppGatewayError, gateway_request, site_payload
+from erpnext_whatsapp_connection.datetime_utils import provider_datetime
 from erpnext_whatsapp_connection.transports import send_delivery
 
 
@@ -46,7 +47,9 @@ def process_outbound_message(message_name: str):
             frappe.throw(_("The site's WhatsApp transport is disabled."))
         result = send_delivery(document=document, settings=settings, pdfs=_pdf_payload(document))
         document.status = "Submitted to WhatsApp"
-        document.submitted_at = result.get("submitted_at")
+        document.submitted_at = provider_datetime(
+            result.get("submitted_at"), frappe.utils.get_system_timezone()
+        )
         document.provider_message_ids = json.dumps(result.get("message_ids") or [])
         document.result_message = _("Submitted to WhatsApp")
         document.error_message = ""
@@ -94,7 +97,9 @@ def sync_delivery_statuses():
                 "result_message": event.get("message") or event.get("status"),
             }
             if event.get("status") == "Acknowledged by WhatsApp":
-                values["acknowledged_at"] = event.get("created_at")
+                values["acknowledged_at"] = provider_datetime(
+                    event.get("created_at"), frappe.utils.get_system_timezone()
+                )
             frappe.db.set_value(HISTORY_DOCTYPE, name, values, update_modified=False)
         settings.last_event_id = max(cint(settings.last_event_id), cint(event.get("id")))
     if result.get("events"):
