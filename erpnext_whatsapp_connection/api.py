@@ -350,6 +350,14 @@ def _validate_report(report_name: str, filters) -> tuple[dict, dict, str, str]:
 
 
 def _report_pdf(report_name: str, filters: dict) -> bytes:
+    adapter = report_adapter(report_name) or {}
+    renderer = adapter.get("pdf_renderer")
+    if renderer:
+        content = frappe.get_attr(renderer)(report_name, filters)
+        if not isinstance(content, bytes) or not content.startswith(b"%PDF"):
+            frappe.throw(_("The registered report PDF renderer returned an invalid PDF."))
+        return content
+
     from frappe.desk.query_report import run
 
     result = run(report_name, filters=filters, ignore_prepared_report=True)
@@ -362,7 +370,7 @@ def _report_pdf(report_name: str, filters: dict) -> bytes:
         if isinstance(column, str):
             parts = column.split(":", 1)
             normalized_columns.append({"label": parts[0], "fieldname": f"column_{index}"})
-        else:
+        elif not column.get("hidden"):
             normalized_columns.append(column)
     labels = [column.get("label") or column.get("fieldname") for column in normalized_columns]
     fields = [column.get("fieldname") for column in normalized_columns]

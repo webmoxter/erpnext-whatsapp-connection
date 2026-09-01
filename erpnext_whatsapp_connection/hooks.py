@@ -7,7 +7,7 @@ app_license = "GPL-3.0"
 frappe_version = ">=16.0.0 <17.0.0"
 required_apps = ["erpnext"]
 
-app_include_js = "/assets/erpnext_whatsapp_connection/js/send_by_whatsapp.js?v=0.1.2"
+app_include_js = "/assets/erpnext_whatsapp_connection/js/send_by_whatsapp.js?v=0.1.3"
 
 doctype_js = {
     "Sales Invoice": "public/js/document_button.js",

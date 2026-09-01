@@ -2,6 +2,11 @@
 
 This project follows Semantic Versioning.
 
+## 0.1.3
+
+- Allow a registered report adapter to provide a permission-checked PDF renderer.
+- Exclude hidden report columns from the generic PDF fallback.
+
 ## 0.1.2
 
 - Normalize gateway submission and acknowledgement timestamps before storing
