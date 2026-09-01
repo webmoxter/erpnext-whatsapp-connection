@@ -237,7 +237,6 @@ def preview_document_pdf(doctype: str, name: str, print_format: str = "Standard"
         None if print_format == "Standard" else print_format,
         doc=doc,
         as_pdf=True,
-        user=frappe.session.user,
     )
     frappe.local.response.filename = f"{name}.pdf".replace("/", "-")
     frappe.local.response.filecontent = content
@@ -311,7 +310,6 @@ def queue_document(
         None if print_format == "Standard" else print_format,
         doc=doc,
         as_pdf=True,
-        user=frappe.session.user,
     )
     return _store_delivery(
         reference_type="Document",

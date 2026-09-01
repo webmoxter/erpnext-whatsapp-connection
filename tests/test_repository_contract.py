@@ -1,3 +1,4 @@
+import ast
 import json
 import subprocess
 import sys
@@ -89,6 +90,24 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertIn("_validate_print_format", api)
         self.assertIn("is_private=1", api)
         self.assertIn("hashlib.sha256(content).hexdigest()", outbound)
+
+    def test_frappe_16_print_calls_use_supported_keywords(self):
+        api = (ROOT / "erpnext_whatsapp_connection" / "api.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(api)
+        print_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "frappe"
+            and node.func.attr == "get_print"
+        ]
+        self.assertEqual(len(print_calls), 2)
+        for call in print_calls:
+            self.assertNotIn("user", {keyword.arg for keyword in call.keywords})
 
     def test_transport_is_replaceable_without_replacing_document_workflow(self):
         hooks = (ROOT / "erpnext_whatsapp_connection" / "hooks.py").read_text(encoding="utf-8")
