@@ -13,6 +13,7 @@ from erpnext_whatsapp_connection.transports import send_delivery
 
 HISTORY_DOCTYPE = "ERPNext WhatsApp Delivery History"
 RETRY_DELAYS_SECONDS = (30, 120, 600)
+TERMINAL_STATUSES = {"Submitted to WhatsApp", "Acknowledged by WhatsApp"}
 
 
 def _pdf_payload(document) -> list[dict]:
@@ -33,13 +34,32 @@ def _pdf_payload(document) -> list[dict]:
     return [{"filename": file_doc.file_name, "content_base64": base64.b64encode(content).decode()}]
 
 
+def _attempt_limit(document) -> int:
+    return max(1, cint(document.max_retries) + 1)
+
+
 def process_outbound_message(message_name: str):
     document = frappe.get_doc(HISTORY_DOCTYPE, message_name)
-    if document.status in {"Submitted to WhatsApp", "Acknowledged by WhatsApp"}:
+    if document.status in TERMINAL_STATUSES or document.status == "Processing":
         return
-    document.attempted_at = now_datetime()
-    document.retry_count = cint(document.retry_count) + 1
+
+    now = now_datetime()
+    attempts = cint(document.retry_count)
+    if attempts >= _attempt_limit(document):
+        document.status = "Failed"
+        document.next_retry_at = None
+        document.result_message = _("Automatic retry limit reached")
+        document.save(ignore_permissions=True)
+        return
+
+    # A duplicate/stale worker must not bypass a scheduled backoff window.
+    if document.status == "Failed" and document.next_retry_at and document.next_retry_at > now:
+        return
+
+    document.attempted_at = now
+    document.retry_count = attempts + 1
     document.status = "Processing"
+    document.next_retry_at = None
     document.save(ignore_permissions=True)
     try:
         settings = frappe.get_single("ERPNext WhatsApp Settings")
@@ -57,28 +77,60 @@ def process_outbound_message(message_name: str):
     except Exception as exc:
         document.status = "Failed"
         document.error_message = str(exc)[:500]
-        if cint(document.retry_count) <= cint(document.max_retries):
+        if cint(document.retry_count) < _attempt_limit(document):
             delay = RETRY_DELAYS_SECONDS[
                 min(cint(document.retry_count) - 1, len(RETRY_DELAYS_SECONDS) - 1)
             ]
             document.next_retry_at = add_to_date(now_datetime(), seconds=delay)
+        else:
+            # Clearing the due timestamp is critical. Leaving the previous value
+            # in place makes every scheduler pass enqueue the exhausted delivery.
+            document.next_retry_at = None
+            document.result_message = _("Automatic retry limit reached")
     document.save(ignore_permissions=True)
 
 
 def retry_due_messages():
-    names = frappe.get_all(
+    rows = frappe.get_all(
         HISTORY_DOCTYPE,
         filters={"status": "Failed", "next_retry_at": ("<=", now_datetime())},
-        pluck="name",
+        fields=["name", "retry_count", "max_retries"],
         limit=50,
     )
-    for name in names:
-        frappe.enqueue(
-            "erpnext_whatsapp_connection.outbound.process_outbound_message",
-            queue="long",
-            message_name=name,
-            job_id=f"whatsapp-retry:{name}:{now_datetime().strftime('%Y%m%d%H%M')}",
+    for row in rows:
+        if cint(row.retry_count) >= max(1, cint(row.max_retries) + 1):
+            frappe.db.set_value(
+                HISTORY_DOCTYPE,
+                row.name,
+                {"next_retry_at": None, "result_message": _("Automatic retry limit reached")},
+                update_modified=False,
+            )
+            continue
+
+        # Claim this due retry before enqueueing it. This removes it from the
+        # scheduler's due query while the worker is waiting in the queue.
+        frappe.db.set_value(
+            HISTORY_DOCTYPE,
+            row.name,
+            {"status": "Queued", "next_retry_at": None},
+            update_modified=False,
         )
+        try:
+            frappe.enqueue(
+                "erpnext_whatsapp_connection.outbound.process_outbound_message",
+                queue="long",
+                message_name=row.name,
+                job_id=f"whatsapp-retry:{row.name}:{cint(row.retry_count) + 1}",
+            )
+        except Exception:
+            # Restore retry eligibility if enqueue itself fails.
+            frappe.db.set_value(
+                HISTORY_DOCTYPE,
+                row.name,
+                {"status": "Failed", "next_retry_at": now_datetime()},
+                update_modified=False,
+            )
+            raise
 
 
 def sync_delivery_statuses():
