@@ -2,6 +2,13 @@
 
 This project follows Semantic Versioning.
 
+## 0.1.4
+
+- Enforce a hard delivery-attempt ceiling of one initial attempt plus the configured automatic retries.
+- Stop exhausted deliveries from retaining a stale retry timestamp that can trigger repeated scheduler enqueueing.
+- Prevent duplicate or stale workers from bypassing Processing state or retry backoff.
+- Claim due retries before enqueueing and restore retry eligibility if enqueueing itself fails.
+
 ## 0.1.3
 
 - Allow a registered report adapter to provide a permission-checked PDF renderer.
