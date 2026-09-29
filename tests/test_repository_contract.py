@@ -14,7 +14,7 @@ class RepositoryContractTest(unittest.TestCase):
     def test_stable_release_contract_is_present(self):
         version = (ROOT / "erpnext_whatsapp_connection" / "__init__.py").read_text()
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-        self.assertIn('__version__ = "0.1.3"', version)
+        self.assertIn('__version__ = "0.1.4"', version)
         self.assertIn("isImmutable", workflow)
         self.assertIn("verify-release-tag.sh", workflow)
         self.assertIn("release-manifest.json", workflow)
