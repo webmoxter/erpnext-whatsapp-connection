@@ -11,6 +11,8 @@ This project follows Semantic Versioning.
 - Preserve configured zero retries and keep existing installations disabled.
 - Route trusted ordinary CI to the separately registered GCP WhatsApp test lane;
   retain signed immutable publication controls and public-fork isolation.
+- Prepare native Warehouse Type prerequisites for the disposable Company
+  preservation fixture, retaining native validation and rollback on errors.
 
 Native end-to-end group delivery/browser acceptance remains pending; this
 development entry does not publish a new version or claim live delivery proof.

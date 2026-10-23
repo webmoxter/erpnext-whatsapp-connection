@@ -56,6 +56,16 @@ report delivery/worker/permission/browser acceptance remains required before
 this draft can be released and consumed. Do not label that proof PASS from
 the source contracts or provider-peer tests.
 
+Fresh-site setup prepares the installed ERPNext Setup Wizard's Warehouse Type
+presets before inserting its synthetic Company. A bench install alone does not
+create those prerequisites; native Company warehouse creation otherwise fails
+with `Could not find Warehouse Type: Transit`. This preparation is restricted to
+`integration.local`, reuses existing prerequisites, does not run the global
+wizard, and retains native Company/link validation. Setup errors roll back
+instead of committing a partial preservation fixture. Focused tests cover the
+ordering, reuse, production-site refusal and error paths; passing those tests
+does not replace actual installation and both migrations in CI.
+
 No app version bump, signed tag, image or release is created by this feature PR.
 After review and required CI, use the normal signed immutable release process.
 Consumers must import the verified release/source/gateway identity through
