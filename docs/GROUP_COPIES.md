@@ -69,6 +69,22 @@ Create/Write/Submit/Cancel/Delete authority. This fixture grant changes no
 production role, replaces no native permission check, and grants no connector
 user access automatically.
 
+Browser acceptance uses the real Save button with Chromium input events and
+waits for the dialog/backdrop and native AJAX to finish. Calling `frm.save()`
+directly from JavaScript does not establish a trusted user gesture: Frappe's
+save-confirmation audio then produces an unhandled `NotAllowedError` in a fresh
+browser profile. The fixture retains normal sound preferences, autoplay policy
+and the uncaught-exception gate; it does not mute, suppress or allowlist that
+failure. It also requires the add-on namespace functions to execute, rather
+than treating a script tag as proof that its asset loaded. Chromium has an
+explicit desktop viewport and an owned process group that is stopped before
+its temporary profile is removed. No mobile-browser coverage is claimed.
+
+If browser exceptions occur, diagnostics retain static script locations and
+typed HTTP/exception identifiers only. Hosts, query strings, request/response
+bodies, message text, credentials and record paths are excluded. Diagnostics
+remain bounded and do not turn browser failures into success.
+
 The native application uses its real signed Unix-HTTP client against a local
 capture peer with an ephemeral key. This is isolated transport/protocol evidence,
 not live Meta delivery. The real gateway state machine/SQLite provider-peer tests
@@ -78,9 +94,18 @@ version results fail the installation lane. The first enabled-group run failed
 during synthetic Customer setup because its Customer Group was a group node.
 The corrected fixture creates selectable leaf entries beneath the native
 Customer Group, Territory and Item Group roots, without bypassing validation.
-New stages remain **NOT RUN** until
-the revised-head CI actually completes; earlier green installation checks and
-source/unit tests do not prove this native acceptance.
+Authoritative acceptance remains pending until revised-head CI actually
+completes; earlier green installation checks and source/unit tests do not
+prove the new native stages.
+
+The corrected full sequence passed on a fresh isolated local site with Frappe
+16.31.0 / ERPNext 16.32.3, all typed evidence present, and 35 candidate source
+files verified byte-for-byte. To fit a VFS-based Docker workspace, this local
+reproduction imported the pinned image's exported filesystem as one temporary
+layer. It is functional evidence, not certification of the original image
+manifest: mandatory CI must still run the original pinned image digest. Neither
+local nor CI protocol capture proves live Meta delivery or a consuming app's
+separate runtime compatibility.
 
 The draft invoice fixture explicitly creates its own enabled selling Price List
 in the synthetic Company's currency and supplies native invoice/price-list

@@ -183,6 +183,45 @@ class NativeGroupFixtureTests(unittest.TestCase):
         from erpnext_whatsapp_connection import __version__
         self.assertTrue(hooks.app_include_js.endswith('?v=' + __version__))
 
+    def test_browser_diagnostics_exclude_payloads_hosts_query_strings_and_record_paths(self):
+        _, browser = self.module()
+        secret = 'sensitive-fixture-value'
+        details = {'text':secret, 'url':'http://private.invalid/assets/frappe/dist/js/desk.js?token='+secret,
+            'lineNumber':12, 'columnNumber':4,
+            'exception':{'className':'TypeError', 'description':secret, 'value':{'recipient':secret}},
+            'stackTrace':{'callFrames':[
+                {'url':'http://private.invalid/desk/customer/'+secret, 'lineNumber':3, 'columnNumber':1},
+                {'url':'http://private.invalid/assets/erpnext/js/utils.js?key='+secret,
+                 'lineNumber':8, 'columnNumber':2}]}}
+        result = browser.exception_location(details)
+        text = json.dumps(result)
+        self.assertNotIn(secret, text)
+        self.assertNotIn('private.invalid', text)
+        self.assertEqual(result['kind'], 'TypeError')
+        self.assertEqual(result['source'], '/assets/frappe/dist/js/desk.js')
+        self.assertEqual(result['frames'][0]['source'], '[redacted]')
+        self.assertEqual(browser.diagnostic_path('https://private.invalid/api/method/frappe.desk.form.load.getdoc?name='+secret),
+            '/api/method/frappe.desk.form.load.getdoc')
+        self.assertEqual(browser.diagnostic_path('https://private.invalid/api/resource/Customer/'+secret), '[redacted]')
+
+    def test_browser_save_input_dispatches_press_release_and_refuses_unavailable_controls(self):
+        _, module = self.module()
+        browser = module.Browser()
+        browser.evaluate = Mock(return_value={'x':42, 'y':24})
+        browser.command = Mock()
+        browser.click('cur_frm.page.btn_primary[0]')
+        calls = browser.command.call_args_list
+        self.assertEqual([call.args[0] for call in calls], ['Input.dispatchMouseEvent'] * 2)
+        self.assertEqual([call.args[1]['type'] for call in calls], ['mousePressed','mouseReleased'])
+        self.assertEqual([call.args[1]['buttons'] for call in calls], [1,0])
+        self.assertTrue(all(call.args[1]['x']==42 and call.args[1]['y']==24 for call in calls))
+        for reason in ('missing','disabled','hidden'):
+            browser.command.reset_mock()
+            browser.evaluate.return_value = {'unavailable':reason}
+            with self.assertRaisesRegex(AssertionError, reason):
+                browser.click('cur_frm.page.btn_primary[0]')
+            browser.command.assert_not_called()
+
 
 class NativeGroupEvidenceTests(unittest.TestCase):
     def setUp(self):

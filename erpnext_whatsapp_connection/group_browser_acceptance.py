@@ -1,21 +1,50 @@
 """Actual shipped settings assets in Chromium, on the disposable site only."""
 import json
 from contextlib import contextmanager
+import os
 from pathlib import Path
 import queue
+import signal
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from urllib.request import urlopen
+from urllib.parse import urlsplit
 
 import frappe
+
+
+def diagnostic_path(url):
+    """Only static source/API identifiers, never hosts, arguments or records."""
+    path = urlsplit(url or '').path
+    if path.startswith(('/assets/frappe/', '/assets/erpnext/', '/assets/erpnext_whatsapp_connection/')):
+        return path
+    if path.startswith('/api/method/'):
+        method = path.removeprefix('/api/method/')
+        if method and all(c.isascii() and (c.isalnum() or c in '._') for c in method):
+            return path
+    return '[redacted]'
+
+
+def exception_location(details):
+    exception = details.get('exception') or {}
+    kind = exception.get('className')
+    kinds = {'Error','TypeError','ReferenceError','SyntaxError','RangeError','Object','DOMException'}
+    frames = (details.get('stackTrace') or {}).get('callFrames') or []
+    return {'kind':kind if kind in kinds else 'Other',
+        'source':diagnostic_path(details.get('url')), 'line':details.get('lineNumber'),
+        'column':details.get('columnNumber'), 'frames':[
+            {'source':diagnostic_path(frame.get('url')), 'line':frame.get('lineNumber'),
+             'column':frame.get('columnNumber')} for frame in frames[:8]]}
 
 
 class Browser:
     def __init__(self):
         self.errors = []
+        self.http_errors = []
+        self.exception_objects = []
         self.responses = queue.Queue(maxsize=16)
         self.stop = threading.Event()
         self.reader_error = None
@@ -25,11 +54,12 @@ class Browser:
         from websockets.sync.client import connect
         self.profile = tempfile.TemporaryDirectory(prefix='whatsapp-ci-browser-')
         self.process = subprocess.Popen(['/usr/bin/chromium', '--headless', '--no-sandbox',
+            '--window-size=1440,1000',
             '--disable-gpu', '--disable-dev-shm-usage', '--disable-background-networking',
             '--no-first-run', '--remote-debugging-port=0', '--proxy-server=direct://',
             '--host-resolver-rules=MAP integration.local 127.0.0.1',
             '--user-data-dir=' + self.profile.name, 'about:blank'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         port_file = Path(self.profile.name) / 'DevToolsActivePort'
         deadline = time.monotonic() + 20
         while not port_file.exists():
@@ -60,7 +90,14 @@ class Browser:
                 if event.get('method') == 'Runtime.exceptionThrown':
                     if len(self.errors) >= 50:
                         raise RuntimeError('Browser exception buffer exhausted')
-                    self.errors.append(event['params']['exceptionDetails'].get('text', 'Browser exception'))
+                    details = event['params']['exceptionDetails']
+                    self.errors.append(exception_location(details))
+                    self.exception_objects.append((details.get('exception') or {}).get('objectId'))
+                elif event.get('method') == 'Network.responseReceived':
+                    response = event['params']['response']
+                    if response.get('status', 0) >= 400 and len(self.http_errors) < 50:
+                        self.http_errors.append({'source':diagnostic_path(response.get('url')),
+                            'status':response['status']})
                 elif 'id' in event:
                     self.responses.put_nowait(event)
         except Exception as error:
@@ -100,16 +137,64 @@ class Browser:
             time.sleep(.2)
         raise AssertionError('Native settings browser did not reach its required state')
 
+    def click(self, expression):
+        """Dispatch real browser input, including native trusted user activation."""
+        point = self.evaluate('''(() => {
+            const element = (''' + expression + ''');
+            if (!element) return {unavailable:'missing'};
+            if (element.disabled) return {unavailable:'disabled'};
+            element.scrollIntoView({block:'center', inline:'center'});
+            const rect = element.getBoundingClientRect();
+            if (!rect.width || !rect.height) return {unavailable:'hidden'};
+            return {x:rect.x + rect.width/2, y:rect.y + rect.height/2};
+        })()''')
+        if point.get('unavailable'):
+            raise AssertionError('Required native browser control is ' + point['unavailable'])
+        for kind, buttons in (('mousePressed', 1), ('mouseReleased', 0)):
+            self.command('Input.dispatchMouseEvent', {'type':kind, 'button':'left',
+                'buttons':buttons, 'clickCount':1, **point})
+
+    def diagnostics(self):
+        # Rejected XHR promises are plain Objects. Read only typed status/error
+        # names; never serialize their request, response body or message text.
+        statuses = []
+        for object_id in list(self.exception_objects):
+            if not object_id:
+                continue
+            result = self.command('Runtime.callFunctionOn', {'objectId':object_id,
+                'returnByValue':True, 'functionDeclaration':'''function() {
+                    const known = new Set(['PermissionError','ValidationError','AuthenticationError',
+                        'MandatoryError','DoesNotExistError','CSRFTokenError','SessionExpired']);
+                    const kind = this.responseJSON?.exc_type || this.exc_type;
+                    return {status: Number.isInteger(this.status) ? this.status : null,
+                        dom_exception: ['NotAllowedError','AbortError','SecurityError'].includes(this.name)
+                            ? this.name : null,
+                        exception_type: known.has(kind) ? kind : 'Other'};
+                }'''})
+            if not result.get('exceptionDetails'):
+                statuses.append(result.get('result', {}).get('value'))
+        return {'exceptions':list(self.errors), 'http_errors':list(self.http_errors),
+            'rejected_requests':statuses}
+
     def __exit__(self, *_):
         self.stop.set()
         self.connection.close()
         self.reader.join(timeout=3)
-        self.process.terminate()
+        try:
+            os.killpg(self.process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             self.process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            self.process.kill()
+            os.killpg(self.process.pid, signal.SIGKILL)
             self.process.wait(timeout=5)
+        # Chromium children can outlive their parent briefly and recreate
+        # profile files during cleanup. This is our dedicated process group.
+        try:
+            os.killpg(self.process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         self.profile.cleanup()
 
 
@@ -177,6 +262,7 @@ def validate_browser(company, other_company, sender, password, editor, editor_pa
             browser.command('Page.navigate', {'url':'http://integration.local:8000/desk/erpnext-whatsapp-settings'})
             browser.wait("Boolean(window.cur_frm?.doctype === 'ERPNext WhatsApp Settings' && cur_frm.doc && !cur_frm.doc.__islocal)")
             assert browser.evaluate("Array.from(document.scripts).some(s=>s.src.includes('send_by_whatsapp.js'))"), 'Actual add-on asset was not loaded'
+            browser.wait("Boolean(typeof window.erpnext_whatsapp_connection?.attach_document_button === 'function' && typeof window.erpnext_whatsapp_connection?.attach_report_button === 'function')")
             assert browser.evaluate("Boolean(Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Configure Company Group'))")
             browser.evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Configure Company Group').click(); true")
             browser.wait("Boolean(window.cur_dialog?.title === 'Company Group Copy')")
@@ -188,11 +274,16 @@ def validate_browser(company, other_company, sender, password, editor, editor_pa
             browser.evaluate('cur_dialog.set_value("enabled",1)')
             browser.evaluate("cur_dialog.get_primary_btn().trigger('click'); true")
             browser.wait("Boolean(!cur_dialog?.$wrapper.is(':visible') && cur_frm.is_dirty())")
-            browser.evaluate('cur_frm.save().then(()=>true)')
+            browser.wait("Boolean(!document.querySelector('.modal-backdrop'))")
+            browser.click('cur_frm.page.btn_primary[0]')
+            browser.wait('Boolean(!cur_frm.is_dirty() && frappe.request.ajax_count === 0)')
             browser.evaluate('cur_frm.reload_doc().then(()=>true)')
             assert browser.evaluate('cur_frm.doc.company_groups.some(row=>row.company===' + json.dumps(company)
                 + ' && row.group_id===' + json.dumps(GROUP) + ' && row.enabled===1)'), 'Actual settings save/reopen lost company configuration'
-            assert not browser.errors, 'Actual target assets raised uncaught browser exceptions'
+            browser.wait('Boolean(window.frappe?.request && frappe.request.ajax_count === 0)')
+            if browser.errors:
+                raise AssertionError('Actual target assets raised uncaught browser exceptions: ' +
+                    json.dumps(browser.diagnostics(), separators=(',', ':')))
 
         response = editing.get('http://127.0.0.1:8000/api/method/erpnext_whatsapp_connection.company_groups.list_groups',
             params={'company':other_company}, timeout=30)
