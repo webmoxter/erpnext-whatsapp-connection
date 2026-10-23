@@ -62,6 +62,12 @@ Write role; that grant is revoked while retaining the existing connector Manager
 carrier. Sender business Read/Print/Report comes from a separate custom role;
 the connector's existing Sender carrier remains independent. No System Manager
 business grant or standard Report edit/export is used to make these tests work.
+The disposable report-reader role also has Journal Entry Read: native Accounts
+Receivable calls permission-checked `get_list` for journal-backed invoices even
+on an empty ledger. Acceptance asserts this role has no Journal Entry
+Create/Write/Submit/Cancel/Delete authority. This fixture grant changes no
+production role, replaces no native permission check, and grants no connector
+user access automatically.
 
 The native application uses its real signed Unix-HTTP client against a local
 capture peer with an ephemeral key. This is isolated transport/protocol evidence,

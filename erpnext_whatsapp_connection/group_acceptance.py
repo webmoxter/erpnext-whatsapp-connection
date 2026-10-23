@@ -245,6 +245,11 @@ def setup_documents():
         permission.report = 1
         permission.save(ignore_permissions=True)
         frappe.clear_cache(doctype=target)
+    # Native Accounts Receivable fetches invoice details from Journal Entry
+    # using get_list even when no posted entries exist. Grant that reviewed
+    # read dependency only in this disposable role; never bypass get_list.
+    add_permission('Journal Entry', role.name, ptype='read')
+    frappe.clear_cache(doctype='Journal Entry')
     report = frappe.get_doc('Report', 'Accounts Receivable')
     # Native site customization, without editing/exporting a standard Report.
     frappe.get_doc({'doctype':'Custom Role', 'report':report.name,
@@ -381,6 +386,9 @@ def validate():
                 assert len(peer.deliveries) == before, 'Completed primary was resent'
                 frappe.set_user(sender)
                 stage('report_pdf_queue_and_native_rq_workers')
+                assert frappe.has_permission('Journal Entry', 'read')
+                assert not any(frappe.has_permission('Journal Entry', action)
+                    for action in ('create','write','submit','cancel','delete'))
                 report_filters = {'company':company.name,
                     'party':[customer.name], 'party_type':'Customer',
                     'report_date':str(date.today()), 'ageing_based_on':'Due Date', 'range':'30, 60, 90, 120'}
