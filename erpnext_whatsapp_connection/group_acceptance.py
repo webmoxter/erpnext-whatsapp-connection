@@ -137,21 +137,46 @@ def captured_gateway(peer):
                 os.environ[key] = value
 
 
-def worker_once():
-    """Execute exactly one real Redis job through native execute_job in RQ."""
+def worker_once(job_id):
+    """Run native queued jobs up to one expected delivery, preserving its child.
+
+    Migrate queues search indexing on the same long queue. Execute that owned
+    work normally instead of assuming the delivery is first or deleting jobs.
+    """
     require_fixture_site()
-    from frappe.utils.background_jobs import get_queue
+    from frappe.utils.background_jobs import get_job, get_queue
     from rq import Worker
     queue = get_queue('long')
-    worker = Worker([queue], connection=queue.connection)
-    worker.work(burst=True, max_jobs=1, logging_level='ERROR', with_scheduler=False)
+    target = get_job(job_id)
+    if (not target or target.kwargs.get('site') != 'integration.local'
+            or target.kwargs.get('method') != 'erpnext_whatsapp_connection.outbound.process_outbound_message'
+            or target.get_status(refresh=True) != 'queued'):
+        raise AssertionError('Expected native delivery is not queued on the disposable site')
+    if not 0 < queue.count <= 50:
+        raise AssertionError('Unexpected disposable long-queue backlog')
+    for _ in range(50):
+        pending = queue.get_jobs(offset=0, length=1)
+        if not pending or pending[0].kwargs.get('site') != 'integration.local':
+            raise AssertionError('Missing or foreign job before expected native delivery')
+        worker = Worker([queue], connection=queue.connection)
+        worker.work(burst=True, max_jobs=1, logging_level='ERROR', with_scheduler=False)
+        if pending[0].get_status(refresh=True) != 'finished':
+            raise AssertionError('Native queued job failed before expected delivery completed')
+        status = target.get_status(refresh=True)
+        if status == 'finished':
+            return
+        if status != 'queued':
+            raise AssertionError('Expected native delivery did not finish successfully')
+    raise AssertionError('Native delivery exceeded the disposable job bound')
 
 
-def run_worker():
+def run_worker(message_name, *, retry_attempt=None):
     require_fixture_site()
     frappe.db.commit()
+    job_id = ('whatsapp:' + message_name if retry_attempt is None
+              else f'whatsapp-retry:{message_name}:{retry_attempt}')
     result = subprocess.run(['bench', '--site', 'integration.local', 'execute',
-        'erpnext_whatsapp_connection.group_acceptance.worker_once'],
+        'erpnext_whatsapp_connection.group_acceptance.worker_once', '--kwargs', json.dumps({'job_id':job_id})],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120, check=False)
     if result.returncode:
         # Raw tracebacks can include worker arguments; keep them out of CI logs.
@@ -201,8 +226,13 @@ def setup_documents():
     income = frappe.db.get_value('Account', {'company':company.name, 'account_type':'Income Account',
         'is_group':0}, 'name') or frappe.db.get_value('Account', {'company':company.name,
         'root_type':'Income', 'is_group':0}, 'name')
+    price_list = frappe.get_doc({'doctype':'Price List', 'price_list_name':'Synthetic delivery prices',
+        'currency':company.default_currency, 'selling':1, 'buying':0, 'enabled':1}).insert(ignore_permissions=True)
     invoice = frappe.get_doc({'doctype':'Sales Invoice', 'company':company.name, 'customer':customer.name,
-        'posting_date':today, 'due_date':today, 'currency':'USD', 'debit_to':company.default_receivable_account,
+        'posting_date':today, 'due_date':today, 'currency':company.default_currency,
+        'conversion_rate':1, 'selling_price_list':price_list.name,
+        'price_list_currency':price_list.currency, 'plc_conversion_rate':1,
+        'debit_to':company.default_receivable_account,
         'items':[{'item_code':item.name, 'qty':1, 'rate':12.34, 'income_account':income,
                   'cost_center':company.cost_center}]}).insert(ignore_permissions=True)
     role = frappe.get_doc({'doctype':'Role', 'role_name':'Synthetic company report reader',
@@ -266,13 +296,13 @@ def check_delivery(result, peer, *, expected_group=True):
         for delivery in (primary, copy):
             file = frappe.get_doc('File', delivery.pdf_file)
             assert file.is_private and file.attached_to_name == delivery.name
-    run_worker()
+    run_worker(primary.name)
     primary.reload()
     assert primary.status in TERMINAL_STATUSES, 'Native primary worker did not confirm submission'
     if expected_group:
         copy.reload()
         assert copy.status == 'Queued', 'Primary did not release its separate copy job'
-        run_worker()
+        run_worker(copy.name)
         copy.reload()
         assert copy.status in TERMINAL_STATUSES, 'Native copy worker did not confirm submission'
         assert peer.deliveries[copy.idempotency_key]['recipient_type'] == 'Group'
@@ -371,23 +401,23 @@ def validate():
                 # path without any second primary provider request.
                 stage('copy_only_scheduler_retry')
                 result = queue_invoice()
-                run_worker()
+                run_worker(result['name'])
                 primary = frappe.get_doc(HISTORY, result['name'])
                 peer.group_failures = 1
-                run_worker()
+                run_worker(result['group_copy']['name'])
                 copy = frappe.get_doc(HISTORY, result['group_copy']['name'])
                 assert copy.status == 'Failed' and copy.next_retry_at and not copy.reconciliation_required
                 from frappe.utils import add_to_date, now_datetime
                 frappe.db.set_value(HISTORY, copy.name, 'next_retry_at', add_to_date(now_datetime(), seconds=-1))
                 from erpnext_whatsapp_connection.outbound import retry_due_messages
                 retry_due_messages()
-                run_worker()
+                run_worker(copy.name, retry_attempt=int(copy.retry_count) + 1)
                 copy.reload()
                 assert copy.status == 'Submitted to WhatsApp'
                 assert peer.attempts[primary.idempotency_key] == 1 and peer.attempts[copy.idempotency_key] == 2
 
                 result = queue_invoice()
-                run_worker()  # Child is queued but has not run yet.
+                run_worker(result['name'])  # Child is queued but has not run yet.
                 stage('sender_revocation_before_copy')
                 frappe.set_user('Administrator')
                 actor = frappe.get_doc('User', sender)
@@ -395,7 +425,7 @@ def validate():
                 actor.save(ignore_permissions=True)
                 frappe.db.commit()
                 before = len(peer.deliveries)
-                run_worker()
+                run_worker(result['group_copy']['name'])
                 denied = frappe.get_doc(HISTORY, result['group_copy']['name'])
                 assert denied.status == 'Failed' and len(peer.deliveries) == before
                 actor.append('roles', {'role':'ERPNext WhatsApp Sender'})
@@ -403,7 +433,7 @@ def validate():
                 frappe.db.commit()
 
                 result = queue_invoice()
-                run_worker()
+                run_worker(result['name'])
                 stage('source_revocation_before_copy')
                 frappe.set_user('Administrator')
                 actor.reload()
@@ -411,7 +441,7 @@ def validate():
                 actor.save(ignore_permissions=True)
                 frappe.db.commit()
                 before = dict(peer.attempts)
-                run_worker()
+                run_worker(result['group_copy']['name'])
                 assert frappe.get_doc(HISTORY, result['group_copy']['name']).status == 'Failed'
                 assert peer.attempts == before, 'Source Read/Print revocation still reached transport'
                 actor.append('roles', {'role':'Synthetic company report reader'})
@@ -431,11 +461,11 @@ def validate():
                 settings.save(ignore_permissions=True)
                 frappe.db.commit()
                 result = queue_invoice()
-                run_worker()
+                run_worker(result['name'])
                 stage('uncertain_copy_reconciliation_no_replay')
                 peer.group_failures = 1
                 peer.uncertain = True
-                run_worker()
+                run_worker(result['group_copy']['name'])
                 uncertain = frappe.get_doc(HISTORY, result['group_copy']['name'])
                 assert uncertain.status == 'Failed' and uncertain.reconciliation_required and not uncertain.next_retry_at
                 before = dict(peer.attempts)

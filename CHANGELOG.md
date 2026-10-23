@@ -19,6 +19,8 @@ This project follows Semantic Versioning.
   Company admission, and distinguish uncertain-copy reconciliation from retry
   exhaustion while excluding those records from scheduled retries.
 - Use native selectable tree leaves in the isolated customer/item fixture.
+- Supply the fresh-site selling Price List prerequisites and execute native
+  migration jobs ahead of the exact expected delivery without purging queues.
 - Bind built-in report customer scope to the native `party` field and its
   Link/MultiSelectList shape; reject empty, multiple and invalid selections.
 

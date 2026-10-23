@@ -37,9 +37,71 @@ class NativeGroupFixtureTests(unittest.TestCase):
     def test_fixture_refuses_production_and_non_opted_in_sites_before_runtime_access(self):
         for site, enabled in (('production.invalid',1), ('integration.local',0), ('other.local',1)):
             module, _ = self.module(site, enabled)
-            for function in (module.validate, module.setup_documents, module.worker_once, module.run_worker):
+            for function, args in ((module.validate, ()), (module.setup_documents, ()),
+                                   (module.worker_once, ('expected-job',)), (module.run_worker, ('expected-message',))):
                 with self.subTest(site=site,function=function.__name__), self.assertRaises(RuntimeError):
-                    function()
+                    function(*args)
+
+    def test_native_worker_executes_bootstrap_jobs_and_stops_before_copy(self):
+        module, _ = self.module()
+        target = NS(kwargs={'site':'integration.local',
+            'method':'erpnext_whatsapp_connection.outbound.process_outbound_message'}, status='queued')
+        target.get_status = lambda **_:target.status
+        bootstrap = NS(kwargs={'site':'integration.local', 'method':'frappe.search.website_search.build_index_for_all_routes'})
+        child = NS(kwargs=dict(target.kwargs))
+        bootstrap.status = 'queued'
+        bootstrap.get_status = lambda **_:bootstrap.status
+        pending = [bootstrap, target, child]
+        executed = []
+        queue = NS(connection=object(), count=3,
+            get_jobs=lambda **_:pending[:1])
+        def work(**kwargs):
+            self.assertEqual(kwargs['max_jobs'], 1)
+            job = pending.pop(0)
+            executed.append(job)
+            job.status = 'finished'
+        worker = Mock(return_value=NS(work=work))
+        native = NS(get_job=Mock(return_value=target), get_queue=Mock(return_value=queue))
+        with patch.dict(sys.modules, {'frappe.utils.background_jobs':native, 'rq':NS(Worker=worker)}):
+            module.worker_once('expected-job')
+        self.assertEqual(executed, [bootstrap, target])
+        self.assertEqual(pending, [child])
+        native.get_job.assert_called_once_with('expected-job')
+
+        # A native bootstrap failure must not be silently passed over merely
+        # because the expected delivery itself could succeed afterwards.
+        pending[:] = [bootstrap, target, child]
+        bootstrap.status = target.status = 'queued'
+        def failed_work(**_):
+            pending.pop(0).status = 'failed'
+        worker.return_value.work = failed_work
+        with patch.dict(sys.modules, {'frappe.utils.background_jobs':native, 'rq':NS(Worker=worker)}):
+            with self.assertRaisesRegex(AssertionError, 'Native queued job failed'):
+                module.worker_once('expected-job')
+        self.assertEqual(pending, [target, child])
+
+    def test_native_worker_refuses_missing_foreign_completed_or_unbounded_work(self):
+        module, _ = self.module()
+        for site, method, status, count, foreign_head in (
+                ('foreign.invalid','erpnext_whatsapp_connection.outbound.process_outbound_message','queued',1,False),
+                ('integration.local','other.method','queued',1,False),
+                ('integration.local','erpnext_whatsapp_connection.outbound.process_outbound_message','finished',1,False),
+                ('integration.local','erpnext_whatsapp_connection.outbound.process_outbound_message','queued',51,False),
+                ('integration.local','erpnext_whatsapp_connection.outbound.process_outbound_message','queued',1,True)):
+            with self.subTest(site=site,method=method,status=status,count=count,foreign_head=foreign_head):
+                target = NS(kwargs={'site':site,'method':method}, get_status=lambda **_:status)
+                head = NS(kwargs={'site':'foreign.invalid' if foreign_head else 'integration.local'})
+                queue = NS(connection=object(), count=count, get_jobs=lambda **_:[head])
+                worker = Mock()
+                native = NS(get_job=Mock(return_value=target), get_queue=Mock(return_value=queue))
+                with patch.dict(sys.modules, {'frappe.utils.background_jobs':native, 'rq':NS(Worker=worker)}):
+                    with self.assertRaises(AssertionError):
+                        module.worker_once('expected-job')
+                worker.assert_not_called()
+        native.get_job.return_value = None
+        with patch.dict(sys.modules, {'frappe.utils.background_jobs':native, 'rq':NS(Worker=worker)}):
+            with self.assertRaises(AssertionError):
+                module.worker_once('missing-job')
 
     def test_actual_unix_protocol_validates_signature_tenant_and_replay(self):
         module, _ = self.module()

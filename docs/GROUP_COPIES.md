@@ -76,6 +76,15 @@ New stages remain **NOT RUN** until
 the revised-head CI actually completes; earlier green installation checks and
 source/unit tests do not prove this native acceptance.
 
+The draft invoice fixture explicitly creates its own enabled selling Price List
+in the synthetic Company's currency and supplies native invoice/price-list
+currency and conversion values. A fresh site has no selling defaults from the
+Setup Wizard. No mandatory checks are disabled or business defaults changed.
+Migrations also enqueue native search-index work on the long queue. The fixture
+runs that owned work normally, then stops at the exact expected delivery/retry
+job so the child can be inspected before it runs. Missing, foreign, failed or
+excessive queued work fails acceptance; no queue is purged to force ordering.
+
 Fresh-site setup prepares the installed ERPNext Setup Wizard's Warehouse Type
 presets before inserting its synthetic Company. A bench install alone does not
 create those prerequisites; native Company warehouse creation otherwise fails
