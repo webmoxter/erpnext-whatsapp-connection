@@ -23,6 +23,12 @@ export function maskNumber(value) {
   return digits ? `${'*'.repeat(Math.max(4, digits.length - 4))}${digits.slice(-4)}` : '';
 }
 
+export function validateGroupId(value) {
+  const id = String(value || '');
+  if (!/^[0-9]{5,24}(?:-[0-9]{5,24})?@g\.us$/.test(id)) throw new Error('Invalid WhatsApp group identifier.');
+  return id;
+}
+
 export function safeError(error) {
   return String(error?.message || error || 'Unknown WhatsApp error')
     .replace(/(?:Bearer\s+)?[A-Za-z0-9_\-.]{20,}/gi, '[REDACTED]')

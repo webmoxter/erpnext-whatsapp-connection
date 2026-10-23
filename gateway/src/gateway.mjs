@@ -11,6 +11,8 @@ import {
   safeError,
   safeTenantId,
   validatePdfs,
+  validateGroupId,
+  sha256,
 } from './core.mjs';
 
 const silentLogger = pino({ level: 'silent' });
@@ -244,6 +246,52 @@ export class WhatsAppGateway {
     return ids;
   }
 
+  async groups(tenantValue) {
+    const tenant = safeTenantId(tenantValue);
+    const socket = this.sessions.get(tenant)?.socket;
+    if (!socket || !this.status(tenant).connected) throw new Error('WhatsApp linked device is not connected.');
+    try {
+      const groups = await socket.groupFetchAllParticipating();
+      return Object.values(groups).filter((group) => {
+        try { validateGroupId(group.id); return true; } catch { return false; }
+      }).map((group) => ({ id: group.id, name: String(group.subject || '') }));
+    } catch { throw new Error('Unable to verify the connected account group membership.'); }
+  }
+
+  async sendGroup(tenant, id, text, pdfs, completed, checkpoint) {
+    validateGroupId(id);
+    const groups = await this.groups(tenant);
+    if (!groups.some((group) => group.id === id)) throw new Error('The configured group is no longer joined by this account.');
+    const socket = this.sessions.get(tenant).socket;
+    let metadata;
+    try { metadata = await socket.groupMetadata(id); }
+    catch { throw new Error('Unable to verify current group posting permissions.'); }
+    const ownIds = [socket.user?.id, socket.user?.lid].filter(Boolean).map(jidNormalizedUser);
+    const own = metadata.participants?.find((participant) => ownIds.includes(jidNormalizedUser(participant.id)));
+    if (metadata.id !== id || !own || metadata.announce && !own.admin) {
+      throw new Error('The connected account cannot post to the configured group.');
+    }
+    const parts = pdfs.map((pdf) => ({ document: pdf.content, mimetype: 'application/pdf', fileName: pdf.filename }));
+    if (text) parts.push({ text });
+    const ids = [...completed];
+    for (let index = ids.length; index < parts.length; index += 1) {
+      checkpoint(ids, true);
+      try {
+        const sent = await socket.sendMessage(id, parts[index]);
+        if (!sent?.key?.id) throw new Error('Missing provider confirmation.');
+        ids.push(String(sent.key.id));
+        checkpoint(ids, false);
+      } catch {
+        // A rejected/timed-out provider call can still have sent the part.
+        // Never replay this uncertain external mutation automatically.
+        const error = new Error('Group submission outcome is uncertain; reconcile before retrying.');
+        error.reconciliation_required = true;
+        throw error;
+      }
+    }
+    return ids;
+  }
+
   send(request) {
     const requestedThrottle = Math.max(10_000, Math.min(300_000, Number(request.throttle_ms) || this.queue.delayMs));
     return this.queue.add(async () => {
@@ -251,30 +299,53 @@ export class WhatsAppGateway {
       const key = String(request.idempotency_key || '').trim();
       if (!/^[A-Za-z0-9_.:-]{16,190}$/.test(key)) throw new Error('Invalid idempotency key.');
       const existing = this.store.getJob(key);
+      if (existing && existing.tenant_id !== tenant) throw new Error('Idempotency identity belongs to another tenant.');
+      const group = request.recipient_type === 'Group';
+      if (request.recipient_type && !['Group', 'Individual'].includes(request.recipient_type)) throw new Error('Unsupported recipient type.');
+      if (group && request.provider !== 'Baileys') throw new Error('Group copies require Linked Device transport.');
+      const number = group ? validateGroupId(request.recipient) : normalizeInternationalNumber(request.recipient);
+      const text = String(request.text || '').trim();
+      const pdfs = validatePdfs(request.pdfs || []);
+      const fingerprint = sha256(JSON.stringify({ type: request.recipient_type || 'Individual', number, text,
+        pdfs: pdfs.map((pdf) => [pdf.filename, sha256(pdf.content)]), provider: request.provider }));
+      const prior = existing ? JSON.parse(existing.result_json) : {};
+      if (group && existing && prior.fingerprint !== fingerprint) throw new Error('Group retry payload changed or has no verifiable identity.');
+      if (group && (prior.reconciliation_required || prior.inflight)) {
+        const error = new Error('Group submission requires reconciliation.');
+        error.reconciliation_required = true;
+        throw error;
+      }
       if (existing && ['Submitted to WhatsApp', 'Acknowledged by WhatsApp'].includes(existing.status)) {
         return { ...JSON.parse(existing.result_json), replayed: true };
       }
-      const number = normalizeInternationalNumber(request.recipient);
-      const text = String(request.text || '').trim();
-      const pdfs = validatePdfs(request.pdfs || []);
       if (!text && !pdfs.length) throw new Error('A text message or PDF document is required.');
       if (text) buildTextPayload(number, text);
-      this.store.updateJob({ idempotencyKey: key, tenant, status: 'Queued', incrementAttempt: true });
+      let progress = { fingerprint, message_ids: group ? prior.message_ids || [] : [] };
+      this.store.updateJob({ idempotencyKey: key, tenant, status: 'Queued', result: progress, incrementAttempt: true });
       try {
         const provider = request.provider === 'Official API' ? 'Official API' : 'Baileys';
-        const messageIds = provider === 'Official API'
+        const checkpoint = (ids, inflight = false) => {
+          progress = { fingerprint, message_ids: [...ids], inflight };
+          this.store.updateJob({ idempotencyKey: key, tenant, status: 'Processing', result: progress });
+        };
+        const messageIds = group ? await this.sendGroup(tenant, number, text, pdfs, progress.message_ids, checkpoint)
+          : provider === 'Official API'
           ? await this.sendCloud(tenant, number, text, pdfs)
           : await this.sendBaileys(tenant, number, text, pdfs);
-        const result = { success: true, provider, message_ids: messageIds, recipient_masked: maskNumber(number), submitted_at: new Date().toISOString() };
+        const result = { success: true, provider, fingerprint, message_ids: messageIds,
+          recipient_masked: group ? 'Configured company group' : maskNumber(number), submitted_at: new Date().toISOString() };
         this.store.updateJob({ idempotencyKey: key, tenant, status: 'Submitted to WhatsApp', result });
         messageIds.forEach((id) => this.store.addMessage(id, tenant, key));
         this.store.addEvent(tenant, key, 'Submitted to WhatsApp');
         return result;
       } catch (error) {
         const message = safeError(error);
-        this.store.updateJob({ idempotencyKey: key, tenant, status: 'Failed', result: { success: false, message } });
+        this.store.updateJob({ idempotencyKey: key, tenant, status: 'Failed',
+          result: { ...progress, success: false, message, reconciliation_required: Boolean(error.reconciliation_required) } });
         this.store.addEvent(tenant, key, 'Failed', message);
-        throw new Error(message);
+        const failure = new Error(message);
+        failure.reconciliation_required = Boolean(error.reconciliation_required);
+        throw failure;
       }
     }, requestedThrottle);
   }

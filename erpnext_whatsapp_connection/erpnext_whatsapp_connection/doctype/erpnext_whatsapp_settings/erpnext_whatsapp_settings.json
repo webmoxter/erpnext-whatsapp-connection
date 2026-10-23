@@ -6,7 +6,8 @@
   "provider_section", "enabled", "provider", "connection_status", "qr_section", "qr_display",
   "official_section", "official_phone_number_id", "official_column", "official_business_account_id", "official_api_version", "webhook_url",
   "delivery_section", "throttle_seconds", "maximum_retries", "require_submitted_documents",
-  "status_section", "last_connected_at", "status_column", "last_disconnected_at", "last_error", "last_event_id"
+  "status_section", "last_connected_at", "status_column", "last_disconnected_at", "last_error", "last_event_id",
+  "group_cc_section", "company_groups"
  ],
  "fields": [
   {"fieldname":"provider_section","fieldtype":"Section Break","label":"WhatsApp Provider"},
@@ -30,7 +31,9 @@
   {"fieldname":"status_column","fieldtype":"Column Break"},
   {"fieldname":"last_disconnected_at","fieldtype":"Datetime","label":"Last Disconnected At","read_only":1},
   {"fieldname":"last_error","fieldtype":"Small Text","label":"Last Non-secret Error","read_only":1},
-  {"default":"0","fieldname":"last_event_id","fieldtype":"Int","hidden":1,"label":"Last Gateway Event ID","read_only":1}
+  {"default":"0","fieldname":"last_event_id","fieldtype":"Int","hidden":1,"label":"Last Gateway Event ID","read_only":1},
+  {"fieldname":"group_cc_section","fieldtype":"Section Break","label":"Company Group Copies"},
+  {"fieldname":"company_groups","fieldtype":"Table","options":"ERPNext WhatsApp Company Group","label":"Company Groups","description":"Optional copies to a joined Linked Device group. Configure separately for each company. Disabled by default."}
  ],
  "issingle": 1,
  "module": "ERPNext WhatsApp Connection",

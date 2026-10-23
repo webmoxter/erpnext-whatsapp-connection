@@ -4,13 +4,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "status","provider","reference_section","reference_type","reference_doctype","reference_name","report_name","report_filters",
+  "status","provider","company","recipient_type","copy_of","reconciliation_required","reference_section","reference_type","reference_doctype","reference_name","report_name","report_filters",
   "recipient_masked","recipient","content_section","message_template","message_text","print_format","pdf_file","pdf_sha256","source_modified",
   "queue_section","queued_at","attempted_at","submitted_at","acknowledged_at","next_retry_at","retry_column","retry_count","max_retries",
   "idempotency_key","provider_message_ids","result_message","error_message"
  ],
  "fields": [
-  {"fieldname":"status","fieldtype":"Select","in_list_view":1,"label":"Status","options":"Queued\nProcessing\nSubmitted to WhatsApp\nAcknowledged by WhatsApp\nFailed","read_only":1,"reqd":1},
+  {"fieldname":"status","fieldtype":"Select","in_list_view":1,"label":"Status","options":"Queued\nProcessing\nSubmitted to WhatsApp\nAcknowledged by WhatsApp\nFailed\nWaiting for Primary","read_only":1,"reqd":1},
   {"fieldname":"provider","fieldtype":"Select","in_list_view":1,"label":"Provider","options":"Linked Device\nOfficial API","read_only":1,"reqd":1},
   {"fieldname":"reference_section","fieldtype":"Section Break","label":"Source"},
   {"fieldname":"reference_type","fieldtype":"Select","label":"Reference Type","options":"Document\nReport","read_only":1,"reqd":1},
@@ -39,7 +39,11 @@
   {"fieldname":"idempotency_key","fieldtype":"Data","label":"Idempotency Key","read_only":1,"reqd":1,"unique":1},
   {"fieldname":"provider_message_ids","fieldtype":"Code","label":"Provider Message IDs","options":"JSON","read_only":1},
   {"fieldname":"result_message","fieldtype":"Small Text","label":"Result","read_only":1},
-  {"fieldname":"error_message","fieldtype":"Small Text","label":"Non-secret Error","read_only":1}
+  {"fieldname":"error_message","fieldtype":"Small Text","label":"Non-secret Error","read_only":1},
+  {"fieldname":"company","fieldtype":"Link","options":"Company","label":"Company","read_only":1},
+  {"fieldname":"recipient_type","fieldtype":"Select","options":"Individual\nGroup","default":"Individual","label":"Recipient Type","read_only":1,"in_list_view":1},
+  {"fieldname":"copy_of","fieldtype":"Link","options":"ERPNext WhatsApp Delivery History","label":"Copy Of","read_only":1},
+  {"fieldname":"reconciliation_required","fieldtype":"Check","default":"0","label":"Reconciliation Required","read_only":1}
  ],
  "index_web_pages_for_search":0,
  "module":"ERPNext WhatsApp Connection",

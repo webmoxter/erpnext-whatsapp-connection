@@ -36,6 +36,10 @@ window.erpnext_whatsapp_connection = window.erpnext_whatsapp_connection || {};
       options: context.recipients.map((row) => row.value),
       reqd: 1,
     }];
+    if (context.company_group_copy) {
+      fields.push({fieldname: "group_copy_notice", fieldtype: "HTML",
+        options: `<p class="text-muted">${__("A copy will be queued to this company's configured WhatsApp group after the customer delivery succeeds.")}</p>`});
+    }
     if (kind === "document") {
       fields.push({
         fieldname: "print_format",
@@ -147,7 +151,7 @@ window.erpnext_whatsapp_connection = window.erpnext_whatsapp_connection || {};
   };
 
   function attachCurrentReport() {
-    const route = frappe.get_route();
+    const route = frappe.get_route() || [];
     if (route[0] !== "query-report" || !defaultReports.has(route[1])) return;
     window.setTimeout(() => api.attach_report_button(route[1], frappe.query_report), 250);
   }

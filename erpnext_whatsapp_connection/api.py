@@ -217,7 +217,9 @@ def prepare_document(doctype: str, name: str):
         _template_rows("Document", doctype, context["company"], adapter["default_message"]),
         context,
     )
+    from erpnext_whatsapp_connection.company_groups import configured_group
     return {
+        "company_group_copy": bool(configured_group(_settings(), context['company'])),
         "recipients": numbers,
         "print_formats": _print_formats(doctype),
         "templates": templates,
@@ -243,16 +245,21 @@ def preview_document_pdf(doctype: str, name: str, print_format: str = "Standard"
     frappe.local.response.type = "pdf"
 
 
-def _store_delivery(*, reference_type, recipient, message, pdf, filename, **values):
+def _store_delivery(*, reference_type, recipient, message, pdf, filename, company=None, _copy_of=None, **values):
     settings = _settings()
+    from erpnext_whatsapp_connection.company_groups import configured_group
+    copy_group = configured_group(settings, company) if not _copy_of else None
     history = frappe.get_doc(
         {
             "doctype": HISTORY_DOCTYPE,
-            "status": "Queued",
+            "status": "Waiting for Primary" if _copy_of else "Queued",
+            "company": company,
+            "recipient_type": "Group" if _copy_of else "Individual",
+            "copy_of": _copy_of,
             "provider": settings.provider,
             "reference_type": reference_type,
             "recipient": recipient,
-            "recipient_masked": f"********{recipient[-4:]}",
+            "recipient_masked": _("Configured company group") if _copy_of else f"********{recipient[-4:]}",
             "message_text": message,
             "queued_at": now_datetime(),
             "retry_count": 0,
@@ -269,14 +276,19 @@ def _store_delivery(*, reference_type, recipient, message, pdf, filename, **valu
         {"pdf_file": file_doc.name, "pdf_sha256": digest},
         update_modified=False,
     )
-    frappe.enqueue(
-        "erpnext_whatsapp_connection.outbound.process_outbound_message",
-        queue="long",
-        enqueue_after_commit=True,
-        message_name=history.name,
-        job_id=f"whatsapp:{history.name}",
-    )
-    return {"name": history.name, "status": history.status}
+    if not _copy_of:
+        frappe.enqueue(
+            "erpnext_whatsapp_connection.outbound.process_outbound_message",
+            queue="long",
+            enqueue_after_commit=True,
+            message_name=history.name,
+            job_id=f"whatsapp:{history.name}",
+        )
+    result = {"name": history.name, "status": history.status}
+    if copy_group:
+        result['group_copy'] = _store_delivery(reference_type=reference_type, recipient=copy_group,
+            message=message, pdf=pdf, filename=filename, company=company, _copy_of=history.name, **values)
+    return result
 
 
 @frappe.whitelist(methods=["POST"])
@@ -313,6 +325,7 @@ def queue_document(
     )
     return _store_delivery(
         reference_type="Document",
+        company=doc.get(adapter.get('company_field')),
         reference_doctype=doctype,
         reference_name=name,
         recipient=recipient,
@@ -404,7 +417,9 @@ def prepare_report(report_name: str, filters=None):
         "company": company,
         "filters": filters,
     }
+    from erpnext_whatsapp_connection.company_groups import configured_group
     return {
+        "company_group_copy": bool(configured_group(_settings(), company)),
         "recipients": _customer_numbers(customer),
         "templates": _render_templates(
             _template_rows("Report", report_name, company, adapter["default_message"]), context
@@ -443,6 +458,7 @@ def queue_report(report_name: str, filters, recipient: str, message: str, messag
     pdf = _report_pdf(report_name, filters)
     return _store_delivery(
         reference_type="Report",
+        company=company,
         report_name=report_name,
         report_filters=json.dumps(filters, separators=(",", ":"), ensure_ascii=False, default=str),
         recipient=recipient,
