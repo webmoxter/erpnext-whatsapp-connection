@@ -159,20 +159,33 @@ def run_worker():
     frappe.db.rollback()  # End the parent read snapshot before inspecting child commits.
 
 
+def fixture_tree_leaf(doctype, field, parent_field, name):
+    """Create a synthetic selectable leaf beneath the native tree root.
+
+    ERPNext rejects a group node as a Customer's Customer Group. Keep native
+    validation enabled and use leaves for all three business tree links.
+    """
+    require_fixture_site()
+    from frappe.utils.nestedset import get_root_of
+    root = get_root_of(doctype)
+    if not root:
+        root = frappe.get_doc({'doctype':doctype, field:name + ' Root',
+            'is_group':1}).insert(ignore_permissions=True).name
+    return frappe.get_doc({'doctype':doctype, field:name, parent_field:root,
+        'is_group':0}).insert(ignore_permissions=True).name
+
+
 def setup_documents():
     require_fixture_site()
     company = frappe.get_doc('Company', 'WhatsApp Fixture Company')
     other = frappe.get_doc({'doctype':'Company', 'company_name':'WhatsApp Other Fixture Company',
         'abbr':'WOF', 'default_currency':'USD', 'country':'United States'}).insert(ignore_permissions=True)
-    from frappe.utils.nestedset import get_root_of
-    roots = {}
-    for doctype, field, name in (('Customer Group','customer_group_name','WhatsApp Fixture Customers'),
-                                ('Territory','territory_name','WhatsApp Fixture Territory'),
-                                ('Item Group','item_group_name','WhatsApp Fixture Items')):
-        root = get_root_of(doctype)
-        if not root:
-            root = frappe.get_doc({'doctype':doctype, field:name, 'is_group':1}).insert(ignore_permissions=True).name
-        roots[doctype] = root
+    leaves = {}
+    for doctype, field, parent_field, name in (
+            ('Customer Group','customer_group_name','parent_customer_group','WhatsApp Fixture Customers'),
+            ('Territory','territory_name','parent_territory','WhatsApp Fixture Territory'),
+            ('Item Group','item_group_name','parent_item_group','WhatsApp Fixture Items')):
+        leaves[doctype] = fixture_tree_leaf(doctype, field, parent_field, name)
     if not frappe.db.exists('UOM', 'Unit'):
         frappe.get_doc({'doctype':'UOM', 'uom_name':'Unit'}).insert(ignore_permissions=True)
     today = date.today()
@@ -180,10 +193,10 @@ def setup_documents():
         frappe.get_doc({'doctype':'Fiscal Year', 'year':str(today.year),
             'year_start_date':date(today.year,1,1), 'year_end_date':date(today.year,12,31)}).insert(ignore_permissions=True)
     customer = frappe.get_doc({'doctype':'Customer', 'customer_name':'WhatsApp Synthetic Customer',
-        'customer_type':'Company', 'customer_group':roots['Customer Group'],
-        'territory':roots['Territory'], 'mobile_no':'+12025550123'}).insert(ignore_permissions=True)
+        'customer_type':'Company', 'customer_group':leaves['Customer Group'],
+        'territory':leaves['Territory'], 'mobile_no':'+12025550123'}).insert(ignore_permissions=True)
     item = frappe.get_doc({'doctype':'Item', 'item_code':'WHATSAPP-FIXTURE-ITEM',
-        'item_name':'Synthetic delivery fixture', 'item_group':roots['Item Group'],
+        'item_name':'Synthetic delivery fixture', 'item_group':leaves['Item Group'],
         'stock_uom':'Unit', 'is_stock_item':0}).insert(ignore_permissions=True)
     income = frappe.db.get_value('Account', {'company':company.name, 'account_type':'Income Account',
         'is_group':0}, 'name') or frappe.db.get_value('Account', {'company':company.name,
@@ -323,7 +336,8 @@ def validate():
                     else:
                         raise AssertionError('A caller-selected group was accepted as a customer number')
                 try:
-                    api.prepare_report('Accounts Receivable', {'company':other.name, 'customer':[customer.name]})
+                    api.prepare_report('Accounts Receivable', {'company':other.name,
+                        'party':[customer.name], 'party_type':'Customer'})
                 except frappe.PermissionError:
                     frappe.clear_last_message()
                 else:
@@ -337,10 +351,20 @@ def validate():
                 assert len(peer.deliveries) == before, 'Completed primary was resent'
                 frappe.set_user(sender)
                 stage('report_pdf_queue_and_native_rq_workers')
-                result = api.queue_report('Accounts Receivable', {'company':company.name,
-                    'customer':[customer.name], 'report_date':str(date.today()), 'ageing_based_on':'Due Date',
-                    'range1':30,'range2':60,'range3':90,'range4':120},
+                report_filters = {'company':company.name,
+                    'party':[customer.name], 'party_type':'Customer',
+                    'report_date':str(date.today()), 'ageing_based_on':'Due Date', 'range':'30, 60, 90, 120'}
+                normalized = api._validate_report('Accounts Receivable', report_filters)[1]
+                from erpnext.accounts.report.accounts_receivable.accounts_receivable import ReceivablePayableReport
+                native_report = ReceivablePayableReport(normalized)
+                native_report.account_type = 'Receivable'
+                native_report.add_common_filters()
+                assert str(native_report.ple.party.isin([customer.name])) in [
+                    str(condition) for condition in native_report.qb_selection_filter
+                ], 'Native report did not bind the validated customer to its query'
+                result = api.queue_report('Accounts Receivable', report_filters,
                     '+12025550123', 'Synthetic report copy')
+                assert json.loads(frappe.get_doc(HISTORY, result['name']).report_filters)['party'] == [customer.name]
                 check_delivery(result, peer)
 
                 # A known failed copy can retry through the real scheduler/RQ
@@ -426,6 +450,7 @@ def validate():
             'private_pdf_and_separate_history':True, 'company_disabled_and_revocation':True,
             'copy_only_retry_without_primary_resend':True, 'native_source_revocation_before_transport':True,
             'forged_group_and_cross_company_requests_denied':True,
+            'native_receivable_party_filter':True,
             'uncertain_copy_no_replay':True, 'enabled_mapping_repeated_migration':True,
             'actual_settings_browser':True, 'external_messages':False}
         print('WHATSAPP_NATIVE_GROUP_ACCEPTANCE=' + json.dumps(evidence), flush=True)

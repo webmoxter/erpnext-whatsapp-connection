@@ -356,6 +356,15 @@ def _validate_report(report_name: str, filters) -> tuple[dict, dict, str, str]:
         customer = customer[0]
     if not customer or not isinstance(customer, str):
         frappe.throw(_("Select exactly one customer before sending this report."))
+    # Match the registered native report's Link/MultiSelectList contract.
+    # Do not validate an obsolete alias while the report reads another field.
+    shape = adapter.get("customer_filter_type")
+    if shape == "list":
+        filters[adapter["customer_filter"]] = [customer]
+    elif shape == "string":
+        filters[adapter["customer_filter"]] = customer
+    elif shape is not None:
+        frappe.throw(_("The registered customer filter type is invalid."))
     customer_doc = frappe.get_doc("Customer", customer)
     customer_doc.check_permission("read")
     company_filter = adapter.get("company_filter")

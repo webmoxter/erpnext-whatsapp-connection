@@ -14,7 +14,7 @@ def verify(text, expected_version):
         'company_disabled_and_revocation', 'uncertain_copy_no_replay',
         'enabled_mapping_repeated_migration', 'actual_settings_browser',
         'copy_only_retry_without_primary_resend', 'native_source_revocation_before_transport',
-        'forged_group_and_cross_company_requests_denied')
+        'forged_group_and_cross_company_requests_denied', 'native_receivable_party_filter')
     if (result.get('native_enabled_group_acceptance') != 'PASS'
             or result.get('site') != 'integration.local'
             or result.get('app_version') != expected_version

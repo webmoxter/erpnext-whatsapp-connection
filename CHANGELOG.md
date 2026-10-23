@@ -18,6 +18,9 @@ This project follows Semantic Versioning.
 - Version the composer browser asset from source, enforce native report and
   Company admission, and distinguish uncertain-copy reconciliation from retry
   exhaustion while excluding those records from scheduled retries.
+- Use native selectable tree leaves in the isolated customer/item fixture.
+- Bind built-in report customer scope to the native `party` field and its
+  Link/MultiSelectList shape; reject empty, multiple and invalid selections.
 
 Native end-to-end group delivery/browser acceptance remains pending. Signing,
 publication and consumption remain blocked until that acceptance is complete;

@@ -68,7 +68,11 @@ capture peer with an ephemeral key. This is isolated transport/protocol evidence
 not live Meta delivery. The real gateway state machine/SQLite provider-peer tests
 remain independent. Mandatory typed evidence is checked by
 `scripts/verify-native-group-evidence.py`; omitted, false, foreign-site or wrong-
-version results fail the installation lane. New stages remain **NOT RUN** until
+version results fail the installation lane. The first enabled-group run failed
+during synthetic Customer setup because its Customer Group was a group node.
+The corrected fixture creates selectable leaf entries beneath the native
+Customer Group, Territory and Item Group roots, without bypassing validation.
+New stages remain **NOT RUN** until
 the revised-head CI actually completes; earlier green installation checks and
 source/unit tests do not prove this native acceptance.
 
@@ -86,6 +90,19 @@ The v0.1.5 preparation also derives the composer asset cache key from the source
 version, checks native report admission and explicit Company Read before report
 preparation, and displays uncertain-copy reconciliation separately from an
 exhausted retry limit. The scheduler excludes reconciliation-required records.
+
+Built-in report adapters use the pinned ERPNext v16 `party` filter, not the
+obsolete `customer` alias: one-element lists for Accounts Receivable, Accounts
+Receivable Summary and General Ledger; a single Link value for Customer Ledger
+Summary. Reports that accept a party type require `Customer`. Empty, multiple or
+forged customer selections fail before rendering. The native acceptance checks
+that the validated Accounts Receivable customer becomes an actual native query
+condition and remains in queued history. Its synthetic invoice stays draft:
+this PDF/transport fixture does not prove posted financial balances. External
+report adapters retain their declared filter field and may opt into the
+`customer_filter_type` (`list` or `string`) normalization contract; missing type
+retains the adapter's existing shape, and unknown types fail closed. No alias
+is treated as authority for a different report filter.
 
 After review and required CI, use the normal signed immutable release process.
 Consumers must import the verified release/source/gateway identity through

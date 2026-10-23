@@ -69,6 +69,44 @@ class NativeGroupFixtureTests(unittest.TestCase):
                 connection.close()
             self.assertEqual(statuses, [200,403])
 
+    def test_fixture_tree_links_are_leaves_under_the_existing_or_new_root(self):
+        for doctype, field, parent_field in (
+                ('Customer Group','customer_group_name','parent_customer_group'),
+                ('Territory','territory_name','parent_territory'),
+                ('Item Group','item_group_name','parent_item_group')):
+            for existing_root in ('Existing native root', None):
+                with self.subTest(doctype=doctype, root=existing_root):
+                    module, _ = self.module()
+                    inserted = []
+                    def document(values):
+                        values = dict(values)
+                        name = values[field]
+                        def insert(*, ignore_permissions):
+                            self.assertTrue(ignore_permissions)
+                            inserted.append(values)
+                            return NS(name=name)
+                        return NS(insert=insert)
+                    module.frappe.get_doc = document
+                    root_lookup = Mock(return_value=existing_root)
+                    with patch.dict(sys.modules, {'frappe.utils.nestedset':NS(get_root_of=root_lookup)}):
+                        result = module.fixture_tree_leaf(doctype, field, parent_field, 'Synthetic leaf')
+                    root_lookup.assert_called_once_with(doctype)
+                    self.assertEqual(result, 'Synthetic leaf')
+                    self.assertEqual(inserted[-1], {'doctype':doctype, field:'Synthetic leaf',
+                        parent_field:existing_root or 'Synthetic leaf Root', 'is_group':0})
+                    self.assertEqual(len(inserted), 1 if existing_root else 2)
+                    if not existing_root:
+                        self.assertEqual(inserted[0], {'doctype':doctype,
+                            field:'Synthetic leaf Root', 'is_group':1})
+
+    def test_fixture_tree_creation_refuses_non_fixture_sites_before_tree_lookup(self):
+        module, _ = self.module('production.invalid')
+        module.frappe.get_doc = Mock()
+        with self.assertRaises(RuntimeError):
+            module.fixture_tree_leaf('Customer Group','customer_group_name',
+                'parent_customer_group','Synthetic leaf')
+        module.frappe.get_doc.assert_not_called()
+
     def test_ci_requires_enabled_native_stage_and_checked_evidence(self):
         compose = (ROOT/'compose.integration.yaml').read_text()
         workflow = (ROOT/'.github/workflows/ci.yml').read_text()
@@ -93,7 +131,7 @@ class NativeGroupEvidenceTests(unittest.TestCase):
                 'company_disabled_and_revocation', 'uncertain_copy_no_replay',
                 'enabled_mapping_repeated_migration', 'actual_settings_browser',
                 'copy_only_retry_without_primary_resend', 'native_source_revocation_before_transport',
-                'forged_group_and_cross_company_requests_denied')}}
+                'forged_group_and_cross_company_requests_denied', 'native_receivable_party_filter')}}
 
     def record(self, value=None):
         return 'acceptance-1 | WHATSAPP_NATIVE_GROUP_ACCEPTANCE=' + json.dumps(value or self.result)
@@ -155,6 +193,33 @@ class ReportCompanyAdmissionTests(unittest.TestCase):
         self.scope['report_adapter'] = lambda _: {'customer_filter':'customer'}
         self.assertEqual(self.validate('Registered customer report', {'customer':'Synthetic'})[-1], '')
         self.company.check_permission.assert_not_called()
+
+    def test_built_in_report_filters_match_native_party_field_and_shape(self):
+        with patch.dict(sys.modules, {'frappe':NS()}):
+            adapters = load('native_report_adapters_test', 'erpnext_whatsapp_connection/adapters.py')
+        self.scope['report_adapter'] = adapters.DEFAULT_REPORT_ADAPTERS.get
+        for report, adapter in adapters.DEFAULT_REPORT_ADAPTERS.items():
+            for selection in ('Synthetic', ['Synthetic']):
+                with self.subTest(report=report, selection=selection):
+                    filters = {'party':selection, 'party_type':'Customer', 'company':'Permitted'}
+                    actual = self.validate(report, filters)[1]
+                    expected = 'Synthetic' if report == 'Customer Ledger Summary' else ['Synthetic']
+                    self.assertEqual(actual['party'], expected)
+                    self.assertEqual(filters['party'], selection, 'Caller filters were mutated')
+            for selection in (None, [], ['Synthetic', 'Other'], {'name':'Synthetic'}):
+                with self.subTest(report=report, forged=selection), self.assertRaises(PermissionError):
+                    self.validate(report, {'party':selection, 'customer':'Synthetic',
+                        'party_type':'Customer', 'company':'Permitted'})
+            if adapter.get('party_type_filter'):
+                for party_type in (None, '', 'Supplier'):
+                    with self.subTest(report=report, party_type=party_type), self.assertRaises(PermissionError):
+                        self.validate(report, {'party':['Synthetic'], 'party_type':party_type,
+                            'company':'Permitted'})
+
+    def test_invalid_registered_filter_shape_fails_closed(self):
+        self.scope['report_adapter'] = lambda _: {'customer_filter':'party', 'customer_filter_type':'unknown'}
+        with self.assertRaises(PermissionError):
+            self.validate('Registered customer report', {'party':'Synthetic'})
 
 
 if __name__ == '__main__':
