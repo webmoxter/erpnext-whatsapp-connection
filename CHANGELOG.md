@@ -2,7 +2,7 @@
 
 This project follows Semantic Versioning.
 
-## Unreleased
+## 0.1.5 — release preparation
 
 - Add opt-in, company-specific Linked Device group copies and joined-group
   selection in WhatsApp settings, with current company/source/sender checks.
@@ -13,9 +13,20 @@ This project follows Semantic Versioning.
   retain signed immutable publication controls and public-fork isolation.
 - Prepare native Warehouse Type prerequisites for the disposable Company
   preservation fixture, retaining native validation and rollback on errors.
+- Require actual enabled-group native document/report/RQ/browser acceptance and
+  strict evidence, with isolated signed local capture and no live recipients.
+- Version the composer browser asset from source, enforce native report and
+  Company admission, and distinguish uncertain-copy reconciliation from retry
+  exhaustion while excluding those records from scheduled retries.
+- Use native selectable tree leaves in the isolated customer/item fixture.
+- Supply the fresh-site selling Price List prerequisites and execute native
+  migration jobs ahead of the exact expected delivery without purging queues.
+- Bind built-in report customer scope to the native `party` field and its
+  Link/MultiSelectList shape; reject empty, multiple and invalid selections.
 
-Native end-to-end group delivery/browser acceptance remains pending; this
-development entry does not publish a new version or claim live delivery proof.
+Native end-to-end group delivery/browser acceptance remains pending. Signing,
+publication and consumption remain blocked until that acceptance is complete;
+this preparation entry does not publish artifacts or claim live delivery proof.
 
 ## 0.1.4
 

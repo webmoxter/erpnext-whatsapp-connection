@@ -69,6 +69,10 @@ jobs:
       - name: Capture integration diagnostics
         if: failure()
         run: docker compose -f compose.integration.yaml logs --no-color configurator site-init acceptance
+      - name: Require native enabled-group evidence
+        run: >-
+          docker compose -f compose.integration.yaml logs --no-color acceptance
+          | python3 scripts/verify-native-group-evidence.py
       - name: Remove isolated integration resources
         if: always()
         run: |

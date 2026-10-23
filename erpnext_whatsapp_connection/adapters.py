@@ -40,7 +40,10 @@ DEFAULT_DOCUMENT_ADAPTERS = {
 
 DEFAULT_REPORT_ADAPTERS = {
     "Accounts Receivable": {
-        "customer_filter": "customer",
+        "customer_filter": "party",
+        "customer_filter_type": "list",
+        "party_type_filter": "party_type",
+        "required_party_type": "Customer",
         "company_filter": "company",
         "default_message": (
             "Dear {{ party_name }},\n\nPlease find your Accounts Receivable statement "
@@ -48,7 +51,10 @@ DEFAULT_REPORT_ADAPTERS = {
         ),
     },
     "Accounts Receivable Summary": {
-        "customer_filter": "customer",
+        "customer_filter": "party",
+        "customer_filter_type": "list",
+        "party_type_filter": "party_type",
+        "required_party_type": "Customer",
         "company_filter": "company",
         "default_message": (
             "Dear {{ party_name }},\n\nPlease find your receivable summary attached."
@@ -56,7 +62,8 @@ DEFAULT_REPORT_ADAPTERS = {
         ),
     },
     "Customer Ledger Summary": {
-        "customer_filter": "customer",
+        "customer_filter": "party",
+        "customer_filter_type": "string",
         "company_filter": "company",
         "default_message": (
             "Dear {{ party_name }},\n\nPlease find your customer statement attached."
@@ -65,6 +72,7 @@ DEFAULT_REPORT_ADAPTERS = {
     },
     "General Ledger": {
         "customer_filter": "party",
+        "customer_filter_type": "list",
         "party_type_filter": "party_type",
         "required_party_type": "Customer",
         "company_filter": "company",

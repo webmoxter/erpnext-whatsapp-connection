@@ -60,6 +60,7 @@ class GroupWorkerTests(TestCase):
         self.assertEqual(self.doc.status,'Failed')
         self.assertEqual(self.doc.reconciliation_required,1)
         self.assertIsNone(self.doc.next_retry_at)
+        self.assertIn('requires reconciliation',self.doc.result_message)
         self.run_worker();self.send.assert_called_once()
         self.release.assert_not_called()
 
