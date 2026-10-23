@@ -41,7 +41,16 @@ def _attempt_limit(document) -> int:
 def process_outbound_message(message_name: str):
     document = frappe.get_doc(HISTORY_DOCTYPE, message_name)
     if document.status in TERMINAL_STATUSES or document.status == "Processing":
+        if document.status in TERMINAL_STATUSES and document.get('recipient_type') != 'Group':
+            from erpnext_whatsapp_connection.company_groups import release_waiting_copies
+            release_waiting_copies(document.name)
         return
+    if document.get('reconciliation_required'):
+        return
+    if document.get('copy_of'):
+        parent_status = frappe.db.get_value(HISTORY_DOCTYPE, document.copy_of, 'status')
+        if parent_status not in TERMINAL_STATUSES:
+            return
 
     now = now_datetime()
     attempts = cint(document.retry_count)
@@ -65,6 +74,10 @@ def process_outbound_message(message_name: str):
         settings = frappe.get_single("ERPNext WhatsApp Settings")
         if not settings.enabled:
             frappe.throw(_("The site's WhatsApp transport is disabled."))
+        if document.get('recipient_type') == 'Group':
+            from erpnext_whatsapp_connection.company_groups import validate_copy
+            if not validate_copy(document, settings):
+                frappe.throw(_('Primary delivery is not complete.'))
         result = send_delivery(document=document, settings=settings, pdfs=_pdf_payload(document))
         document.status = "Submitted to WhatsApp"
         document.submitted_at = provider_datetime(
@@ -77,7 +90,8 @@ def process_outbound_message(message_name: str):
     except Exception as exc:
         document.status = "Failed"
         document.error_message = str(exc)[:500]
-        if cint(document.retry_count) < _attempt_limit(document):
+        document.reconciliation_required = int(bool(getattr(exc, 'reconciliation_required', False)))
+        if not document.reconciliation_required and cint(document.retry_count) < _attempt_limit(document):
             delay = RETRY_DELAYS_SECONDS[
                 min(cint(document.retry_count) - 1, len(RETRY_DELAYS_SECONDS) - 1)
             ]
@@ -88,9 +102,19 @@ def process_outbound_message(message_name: str):
             document.next_retry_at = None
             document.result_message = _("Automatic retry limit reached")
     document.save(ignore_permissions=True)
+    if document.status in TERMINAL_STATUSES and document.get('recipient_type') != 'Group':
+        from erpnext_whatsapp_connection.company_groups import release_waiting_copies
+        release_waiting_copies(document.name)
 
 
 def retry_due_messages():
+    # Recover a committed primary whose after-commit child enqueue was lost.
+    from erpnext_whatsapp_connection.company_groups import release_waiting_copies
+    for parent in set(frappe.get_all(HISTORY_DOCTYPE,
+            filters={'recipient_type': 'Group', 'status': ('in', ['Waiting for Primary', 'Queued'])},
+            pluck='copy_of', limit=50)):
+        if frappe.db.get_value(HISTORY_DOCTYPE, parent, 'status') in TERMINAL_STATUSES:
+            release_waiting_copies(parent)
     rows = frappe.get_all(
         HISTORY_DOCTYPE,
         filters={"status": "Failed", "next_retry_at": ("<=", now_datetime())},

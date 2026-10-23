@@ -14,6 +14,7 @@ delivery through WhatsApp. It provides:
 - print-format selection and PDF preview;
 - site-managed message templates;
 - a durable outbound queue with retries and delivery history;
+- opt-in company-specific Linked Device group copies with independent history;
 - linked-device and official WhatsApp Business Cloud API transports;
 - an extension contract for custom applications and reports.
 
@@ -55,6 +56,10 @@ pin the gateway by digest from `release-manifest.json`, and follow
 
 See [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md),
 [`docs/RELEASES.md`](docs/RELEASES.md), and [`CHANGELOG.md`](CHANGELOG.md).
+
+Company copies and their current evidence/release limits are described in
+[`docs/GROUP_COPIES.md`](docs/GROUP_COPIES.md). Ordinary GCP CI runner setup is
+documented in [`docs/SELF_HOSTED_CI.md`](docs/SELF_HOSTED_CI.md).
 
 ## License and provider notice
 

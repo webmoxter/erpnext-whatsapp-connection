@@ -76,7 +76,9 @@ def gateway_request(path: str, payload: dict, timeout: int = 60) -> dict:
     except json.JSONDecodeError as exc:
         raise WhatsAppGatewayError("The private WhatsApp gateway returned an invalid response.") from exc
     if response.status >= 400:
-        raise WhatsAppGatewayError(str(data.get("error") or "WhatsApp operation failed."))
+        error = WhatsAppGatewayError(str(data.get("error") or "WhatsApp operation failed."))
+        error.reconciliation_required = data.get('reconciliation_required') is True
+        raise error
     return data
 
 

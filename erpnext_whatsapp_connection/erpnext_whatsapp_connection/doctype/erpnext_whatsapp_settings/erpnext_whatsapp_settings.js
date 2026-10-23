@@ -18,6 +18,42 @@ function refresh_status(frm) {
 
 frappe.ui.form.on("ERPNext WhatsApp Settings", {
   refresh(frm) {
+    if (frappe.model.can_write(frm.doctype)) {
+      frm.add_custom_button(__("Configure Company Group"), () => {
+        if (frm.doc.provider !== "Linked Device") {
+          frappe.msgprint(__("Group copies require Linked Device transport."));
+          return;
+        }
+        let groups = [];
+        const dialog = new frappe.ui.Dialog({
+          title: __("Company Group Copy"),
+          fields: [
+            {fieldname: "company", fieldtype: "Link", options: "Company", label: __("Company"), reqd: 1},
+            {fieldname: "load_groups", fieldtype: "Button", label: __("Load Joined Groups"), click: async () => {
+              const company = dialog.get_value("company");
+              if (!company) { frappe.msgprint(__("Select a company first.")); return; }
+              const response = await frappe.call({method: "erpnext_whatsapp_connection.company_groups.list_groups", args: {company}});
+              groups = response.message || [];
+              dialog.set_df_property("group", "options", groups);
+              dialog.set_value("group", "");
+            }},
+            {fieldname: "group", fieldtype: "Select", label: __("Group"), reqd: 1, options: []},
+            {fieldname: "enabled", fieldtype: "Check", label: __("Enable Group CC"), default: 0},
+          ],
+          primary_action_label: __("Add / Update"),
+          primary_action(values) {
+            const selected = groups.find(row => row.value === values.group);
+            if (!selected) { frappe.msgprint(__("Load and select a joined group.")); return; }
+            const existing = (frm.doc.company_groups || []).find(row => row.company === values.company);
+            const row = existing || frm.add_child("company_groups");
+            Object.assign(row, {company: values.company, enabled: values.enabled || 0,
+              group_id: selected.value, group_name: selected.label});
+            frm.dirty(); frm.refresh_field("company_groups"); dialog.hide();
+          },
+        });
+        dialog.show();
+      });
+    }
     frm.add_custom_button(__("Connect / Show QR"), async () => {
       await frm.save();
       const response = await frappe.call({

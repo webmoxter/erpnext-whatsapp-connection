@@ -53,6 +53,7 @@ def send_via_bundled_gateway(*, document, settings, pdfs: list[dict], transport:
         site_payload(
             provider=transport["gateway_provider"],
             recipient=document.get_password("recipient"),
+            recipient_type=document.get('recipient_type') or 'Individual',
             text=document.message_text or "",
             pdfs=pdfs,
             idempotency_key=document.idempotency_key,

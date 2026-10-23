@@ -68,6 +68,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/v1/disconnect') return json(res, 200, await gateway.disconnect(body.tenant_id, body.provider));
     if (req.method === 'POST' && url.pathname === '/v1/cloud/configure') return json(res, 200, await gateway.configureCloud(body.tenant_id, body));
     if (req.method === 'POST' && url.pathname === '/v1/send') return json(res, 200, await gateway.send(body));
+    if (req.method === 'POST' && url.pathname === '/v1/groups') return json(res, 200, { groups: await gateway.groups(body.tenant_id) });
     if (req.method === 'POST' && url.pathname === '/v1/events') return json(res, 200, { events: gateway.store.eventsAfter(body.tenant_id, body.after_id) });
     if (req.method === 'POST' && url.pathname === '/v1/cloud/webhook/verify') {
       return json(res, 200, { challenge: gateway.verifyCloudWebhook(body.tenant_id, body.verify_token, body.challenge) });
@@ -78,7 +79,7 @@ const server = http.createServer(async (req, res) => {
     }
     return json(res, 404, { error: 'Not found.' });
   } catch (error) {
-    return json(res, 400, { error: safeError(error) });
+    return json(res, 400, { error: safeError(error), reconciliation_required: Boolean(error.reconciliation_required) });
   }
 });
 
