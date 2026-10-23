@@ -2,7 +2,7 @@
 
 This project follows Semantic Versioning.
 
-## Unreleased
+## 0.1.5 — release preparation
 
 - Add opt-in, company-specific Linked Device group copies and joined-group
   selection in WhatsApp settings, with current company/source/sender checks.
@@ -14,8 +14,9 @@ This project follows Semantic Versioning.
 - Prepare native Warehouse Type prerequisites for the disposable Company
   preservation fixture, retaining native validation and rollback on errors.
 
-Native end-to-end group delivery/browser acceptance remains pending; this
-development entry does not publish a new version or claim live delivery proof.
+Native end-to-end group delivery/browser acceptance remains pending. Signing,
+publication and consumption remain blocked until that acceptance is complete;
+this preparation entry does not publish artifacts or claim live delivery proof.
 
 ## 0.1.4
 
