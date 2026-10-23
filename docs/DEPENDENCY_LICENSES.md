@@ -17,3 +17,12 @@ under GPL-3.0-only. This inventory must be regenerated and reviewed whenever the
 lockfile changes.
 
 This review is a distribution-control record, not legal advice.
+
+The v0.1.5 preparation leaves the gateway lockfile and application Python
+dependencies unchanged. The disposable integration image adds Debian Chromium
+and Liberation fonts for actual native settings-browser acceptance. These are
+test-image tools, not gateway-image dependencies or vendored Python-wheel
+contents. Chromium is distributed under BSD-style and component-specific
+licenses; Liberation fonts use the SIL Open Font License. Debian package
+copyright/license files remain in that test image. The browser harness uses
+Frappe's existing websockets dependency; it adds no application Python package.

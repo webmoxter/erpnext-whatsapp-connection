@@ -13,6 +13,11 @@ This project follows Semantic Versioning.
   retain signed immutable publication controls and public-fork isolation.
 - Prepare native Warehouse Type prerequisites for the disposable Company
   preservation fixture, retaining native validation and rollback on errors.
+- Require actual enabled-group native document/report/RQ/browser acceptance and
+  strict evidence, with isolated signed local capture and no live recipients.
+- Version the composer browser asset from source, enforce native report and
+  Company admission, and distinguish uncertain-copy reconciliation from retry
+  exhaustion while excluding those records from scheduled retries.
 
 Native end-to-end group delivery/browser acceptance remains pending. Signing,
 publication and consumption remain blocked until that acceptance is complete;

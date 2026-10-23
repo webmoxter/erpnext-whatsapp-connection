@@ -100,7 +100,8 @@ def process_outbound_message(message_name: str):
             # Clearing the due timestamp is critical. Leaving the previous value
             # in place makes every scheduler pass enqueue the exhausted delivery.
             document.next_retry_at = None
-            document.result_message = _("Automatic retry limit reached")
+            document.result_message = (_("Delivery outcome requires reconciliation; automatic retry stopped.")
+                if document.reconciliation_required else _("Automatic retry limit reached"))
     document.save(ignore_permissions=True)
     if document.status in TERMINAL_STATUSES and document.get('recipient_type') != 'Group':
         from erpnext_whatsapp_connection.company_groups import release_waiting_copies
@@ -117,7 +118,8 @@ def retry_due_messages():
             release_waiting_copies(parent)
     rows = frappe.get_all(
         HISTORY_DOCTYPE,
-        filters={"status": "Failed", "next_retry_at": ("<=", now_datetime())},
+        filters={"status": "Failed", "next_retry_at": ("<=", now_datetime()),
+                 "reconciliation_required": 0},
         fields=["name", "retry_count", "max_retries"],
         limit=50,
     )

@@ -2,6 +2,9 @@ ARG ERPNEXT_IMAGE=frappe/erpnext:v16.32.3@sha256:bea913b9e36edda078fe049c56a0cd2
 FROM ${ERPNEXT_IMAGE}
 
 USER root
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y chromium fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 COPY --chown=frappe:frappe erpnext_whatsapp_connection \
     /home/frappe/frappe-bench/apps/erpnext_whatsapp_connection/erpnext_whatsapp_connection
 COPY --chown=frappe:frappe pyproject.toml LICENSE README.md SECURITY.md \

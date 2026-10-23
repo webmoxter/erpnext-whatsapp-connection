@@ -50,11 +50,27 @@ payload denial, membership/provider/posting denials, partial-send ambiguity,
 and durable in-flight recovery. Python tests cover configured/native grants,
 company/source/revocation/parent guards and independent child scheduling.
 They are not proof of live WhatsApp delivery or a full native browser session.
-Real Frappe CI additionally requires a disabled original company mapping to
-survive repeated migrations. Enabled-setting, native end-to-end document and
-report delivery/worker/permission/browser acceptance remains required before
-this draft can be released and consumed. Do not label that proof PASS from
-the source contracts or provider-peer tests.
+Real Frappe CI requires a disabled original company mapping to survive repeated
+migrations, followed by `group_acceptance.validate` on the explicitly enabled
+disposable site. The latter exercises actual native enabled settings save and
+reopen, a draft synthetic Sales Invoice and Accounts Receivable PDF, separate
+private Files and history, real Redis/RQ primary/copy jobs, copy-only retry,
+current sender/source revocation, forged group and foreign Company denial,
+uncertain-outcome reconciliation, and two further migrations of enabled rules.
+The actual shipped Settings page runs in Chromium with a custom native Settings
+Write role; that grant is revoked while retaining the existing connector Manager
+carrier. Sender business Read/Print/Report comes from a separate custom role;
+the connector's existing Sender carrier remains independent. No System Manager
+business grant or standard Report edit/export is used to make these tests work.
+
+The native application uses its real signed Unix-HTTP client against a local
+capture peer with an ephemeral key. This is isolated transport/protocol evidence,
+not live Meta delivery. The real gateway state machine/SQLite provider-peer tests
+remain independent. Mandatory typed evidence is checked by
+`scripts/verify-native-group-evidence.py`; omitted, false, foreign-site or wrong-
+version results fail the installation lane. New stages remain **NOT RUN** until
+the revised-head CI actually completes; earlier green installation checks and
+source/unit tests do not prove this native acceptance.
 
 Fresh-site setup prepares the installed ERPNext Setup Wizard's Warehouse Type
 presets before inserting its synthetic Company. A bench install alone does not
@@ -66,7 +82,11 @@ instead of committing a partial preservation fixture. Focused tests cover the
 ordering, reuse, production-site refusal and error paths; passing those tests
 does not replace actual installation and both migrations in CI.
 
-No app version bump, signed tag, image or release is created by this feature PR.
+The v0.1.5 preparation also derives the composer asset cache key from the source
+version, checks native report admission and explicit Company Read before report
+preparation, and displays uncertain-copy reconciliation separately from an
+exhausted retry limit. The scheduler excludes reconciliation-required records.
+
 After review and required CI, use the normal signed immutable release process.
 Consumers must import the verified release/source/gateway identity through
 their normal dependency updater; never patch the frozen vendor mirror.

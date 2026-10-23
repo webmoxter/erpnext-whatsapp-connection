@@ -32,12 +32,16 @@ services:
     command:
       - >-
         ls -1 apps > sites/apps.txt;
+        mkdir -p sites/assets;
+        cp -a assets/. sites/assets/;
         bench set-config -g db_host db;
         bench set-config -gp db_port 3306;
         bench set-config -g redis_cache redis://redis-cache:6379;
         bench set-config -g redis_queue redis://redis-queue:6379;
         bench set-config -g redis_socketio redis://redis-queue:6379;
-        bench set-config -gp socketio_port 9000
+        bench set-config -gp socketio_port 9000;
+        bench set-config -g host_name http://127.0.0.1:8000;
+        bench set-config -g whatsapp_integration_acceptance 1
     depends_on:
       db: {condition: service_healthy}
       redis-cache: {condition: service_healthy}
@@ -70,7 +74,8 @@ services:
       - >-
         bench --site integration.local list-apps | grep -q erpnext;
         bench --site integration.local list-apps | grep -q erpnext_whatsapp_connection;
-        bench --site integration.local execute erpnext_whatsapp_connection.acceptance.validate_installation
+        bench --site integration.local execute erpnext_whatsapp_connection.acceptance.validate_installation;
+        bench --site integration.local execute erpnext_whatsapp_connection.group_acceptance.validate
     depends_on:
       site-init: {condition: service_completed_successfully}
     volumes:

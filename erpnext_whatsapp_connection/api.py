@@ -344,7 +344,7 @@ def _validate_report(report_name: str, filters) -> tuple[dict, dict, str, str]:
         frappe.throw(_("WhatsApp sending is not registered for this report."))
     filters = frappe.parse_json(filters) if isinstance(filters, str) else dict(filters or {})
     report = frappe.get_doc("Report", report_name)
-    if not frappe.has_permission(report.ref_doctype, ptype="report"):
+    if not report.is_permitted() or not frappe.has_permission(report.ref_doctype, ptype="report"):
         frappe.throw(_("You do not have permission to run this report."), frappe.PermissionError)
     party_type_field = adapter.get("party_type_filter")
     if party_type_field and filters.get(party_type_field) != adapter.get("required_party_type"):
@@ -358,7 +358,12 @@ def _validate_report(report_name: str, filters) -> tuple[dict, dict, str, str]:
         frappe.throw(_("Select exactly one customer before sending this report."))
     customer_doc = frappe.get_doc("Customer", customer)
     customer_doc.check_permission("read")
-    company = filters.get(adapter.get("company_filter")) or ""
+    company_filter = adapter.get("company_filter")
+    company = (filters.get(company_filter) or "") if company_filter else ""
+    if company_filter:
+        if not isinstance(company, str) or not company:
+            frappe.throw(_("Select one permitted company before sending this report."), frappe.PermissionError)
+        frappe.get_doc("Company", company).check_permission("read")
     return adapter, filters, customer, company
 
 

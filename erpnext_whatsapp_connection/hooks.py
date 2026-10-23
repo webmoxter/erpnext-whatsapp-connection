@@ -1,3 +1,5 @@
+from erpnext_whatsapp_connection import __version__
+
 app_name = "erpnext_whatsapp_connection"
 app_title = "ERPNext WhatsApp Connection by TNGSol.com"
 app_publisher = "TNGSol.com"
@@ -7,7 +9,7 @@ app_license = "GPL-3.0"
 frappe_version = ">=16.0.0 <17.0.0"
 required_apps = ["erpnext"]
 
-app_include_js = "/assets/erpnext_whatsapp_connection/js/send_by_whatsapp.js?v=0.1.3"
+app_include_js = f"/assets/erpnext_whatsapp_connection/js/send_by_whatsapp.js?v={__version__}"
 
 doctype_js = {
     "Sales Invoice": "public/js/document_button.js",
