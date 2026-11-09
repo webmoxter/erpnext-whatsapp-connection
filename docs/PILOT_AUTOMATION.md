@@ -12,7 +12,7 @@ or **customer Receive Payment Entry** is submitted.
 - There is no guest send endpoint or caller-selected arbitrary DocType.
 - A matching **per-company** rule is required. Only two specified submit hooks
   are supported; adding a child-table entry cannot invent a new Frappe hook.
-- The Customer must have three fields populated by an authorized business user:
+- The Customer must have three fields populated by an authorized WhatsApp manager:
   **Automatic WhatsApp Documents: Customer Opt-in Confirmed** checked,
   **Automatic WhatsApp Recipient** set to an international number, and a
   **WhatsApp Consent Evidence Reference**. The number must still resolve
@@ -48,7 +48,7 @@ Manager:
 2. Record a consenting **Customer** and an authorized customer/contact phone
    number. Set all three Customer fields listed above. **Do not use live
    customer or WhatsApp numbers in the pilot tests.**
-3. Open **ERPNext WhatsApp Settings**, enable the transport if testing with a
+3. Only the **ERPNext WhatsApp Manager** or **System Manager** role may set or alter these Customer opt-in fields; backend validation rejects unauthorized changes. Open **ERPNext WhatsApp Settings**, enable the transport if testing with a
    synthetic capture gateway, and enable **Enable Document Automation**.
 4. In **Company Automation Rules**, add the specific Company, choose
    **Sales Invoice** or **Payment Entry**, and enable the rule.
@@ -88,6 +88,11 @@ sudo -iu frappe /home/frappe/pilot/bin/pilot \
 # or create it with the documented Pilot new-site command and explicit apps.
 sudo -iu frappe /home/frappe/pilot/bin/pilot \
   -b erpfin360-lab list-site-apps YOUR-DISPOSABLE-SITE.localhost
+
+# Run the read-only application/schema preflight (does not contact WhatsApp).
+sudo -iu frappe /home/frappe/pilot/bin/pilot \
+  -b erpfin360-lab frappe --site YOUR-DISPOSABLE-SITE.localhost \
+  execute erpnext_whatsapp_connection.pilot_acceptance.verify_site
 ```
 
 Do not install an unreleased branch on production. Pin a verified tagged
