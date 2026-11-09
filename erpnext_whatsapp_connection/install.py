@@ -48,11 +48,48 @@ def _ensure_default_templates():
             ).insert(ignore_permissions=True)
 
 
+def _ensure_customer_automation_consent_fields():
+    """Create opt-in fields without overwriting an existing Customer policy."""
+    if not frappe.db.exists("DocType", "Customer"):
+        return
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    create_custom_fields(
+        {"Customer": [
+            {
+                "fieldname": "erpnext_whatsapp_auto_opt_in",
+                "label": "Automatic WhatsApp Documents: Customer Opt-in Confirmed",
+                "fieldtype": "Check",
+                "default": "0",
+                "insert_after": "customer_name",
+                "description": "Enable only after recording the customer's explicit consent; manual sends are unaffected.",
+            },
+            {
+                "fieldname": "erpnext_whatsapp_auto_phone",
+                "label": "Automatic WhatsApp Recipient",
+                "fieldtype": "Data",
+                "insert_after": "erpnext_whatsapp_auto_opt_in",
+                "description": "International number, also present on this Customer or a permitted linked Contact.",
+            },
+            {
+                "fieldname": "erpnext_whatsapp_auto_consent_reference",
+                "label": "WhatsApp Consent Evidence Reference",
+                "fieldtype": "Data",
+                "insert_after": "erpnext_whatsapp_auto_phone",
+                "description": "Internal consent evidence identifier; do not paste personal messages here.",
+            },
+        ]},
+        update=False,
+    )
+
+
 def after_install():
     _ensure_roles()
     _ensure_default_templates()
+    _ensure_customer_automation_consent_fields()
 
 
 def after_migrate():
     _ensure_roles()
     _ensure_default_templates()
+    _ensure_customer_automation_consent_fields()
