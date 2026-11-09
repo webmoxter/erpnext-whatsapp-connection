@@ -1,0 +1,166 @@
+{
+ "doctype": "DocType",
+ "name": "ERPNext WhatsApp Automation Request",
+ "module": "ERPNext WhatsApp Connection",
+ "autoname": "field:automation_key",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "field_order": [
+  "automation_key",
+  "status",
+  "company",
+  "reference_doctype",
+  "reference_name",
+  "customer",
+  "recipient_masked",
+  "phone_digest",
+  "source_modified",
+  "source_event",
+  "rule_name",
+  "delivery_mode",
+  "requested_by",
+  "approved_by",
+  "approved_at",
+  "delivery_history",
+  "failure_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "automation_key",
+   "label": "Automation Key",
+   "fieldtype": "Data",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "options": "Pending Approval\nApproved\nQueued\nRejected\nBlocked",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "label": "Company",
+   "fieldtype": "Link",
+   "options": "Company",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "label": "Document Type",
+   "fieldtype": "Link",
+   "options": "DocType",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "label": "Document",
+   "fieldtype": "Dynamic Link",
+   "options": "reference_doctype",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "customer",
+   "label": "Customer",
+   "fieldtype": "Link",
+   "options": "Customer",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "recipient_masked",
+   "label": "Recipient (masked)",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "phone_digest",
+   "label": "Recipient Fingerprint",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_modified",
+   "label": "Document Version",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_event",
+   "label": "Event",
+   "fieldtype": "Select",
+   "options": "Submitted",
+   "default": "Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule_name",
+   "label": "Rule ID",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "delivery_mode",
+   "label": "Delivery Mode",
+   "fieldtype": "Select",
+   "options": "Approval Required\nSend Automatically",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "label": "Requested By",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "label": "Approved By",
+   "fieldtype": "Link",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_at",
+   "label": "Approved At",
+   "fieldtype": "Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "delivery_history",
+   "label": "Delivery History",
+   "fieldtype": "Link",
+   "options": "ERPNext WhatsApp Delivery History",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_reason",
+   "label": "Decision / Failure Code",
+   "fieldtype": "Data",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "ERPNext WhatsApp Manager",
+   "read": 1,
+   "report": 1
+  },
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ]
+}
