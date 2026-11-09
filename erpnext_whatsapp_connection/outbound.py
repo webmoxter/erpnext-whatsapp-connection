@@ -187,3 +187,5 @@ def sync_delivery_statuses():
 def scheduled_maintenance():
     retry_due_messages()
     sync_delivery_statuses()
+    from erpnext_whatsapp_connection.automation import recover_approved_requests
+    recover_approved_requests()
