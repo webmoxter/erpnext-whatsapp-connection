@@ -9,7 +9,8 @@ class ERPNextWhatsAppAutomationRequest(Document):
             return
         immutable = (
             "automation_key", "company", "reference_doctype", "reference_name",
-            "customer", "recipient_masked", "phone_digest", "source_modified",
+            "customer", "recipient_masked", "message_preview", "print_format",
+            "template_name", "phone_digest", "source_modified",
             "source_event", "rule_name", "delivery_mode", "requested_by",
         )
         for field in immutable:
