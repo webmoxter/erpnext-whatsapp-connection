@@ -1,3 +1,14 @@
+## Unreleased — opt-in customer document notifications (experimental)
+
+- Add disabled-by-default, per-company rules for submitted Sales Invoices and customer Receive Payment Entries.
+- Offer approval-required requests or explicitly enabled automatic dispatch, with manager-only approval/rejection.
+- Require Customer consent, validated linked recipient and consent evidence, plus source/Company/print authorization checks.
+- Revalidate content, permissions and consent before dispatch; block stale or revoked requests.
+- Use deterministic site-local request keys, protected approval state, existing private PDF delivery and after-commit queue.
+- Prevent automatic extra company-group copies; preserve manual Send by WhatsApp, retries and group-copy behavior.
+- Add read-only Pilot compatibility preflight, repeated-migrate installation checks and offline automation tests.
+- This is **not a signed release** and has not been tested against a live Pilot gateway or WhatsApp provider.
+
 # Changelog
 
 This project follows Semantic Versioning.
