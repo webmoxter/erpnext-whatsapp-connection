@@ -16,6 +16,14 @@ doctype_js = {
     "Payment Entry": "public/js/document_button.js",
 }
 
+# Consent-bound automation is off until explicitly enabled on a tenant site.
+# This never replaces the existing manual Send by WhatsApp actions.
+doc_events = {
+    "Sales Invoice": {"on_submit": "erpnext_whatsapp_connection.automation.on_document_submit"},
+    "Payment Entry": {"on_submit": "erpnext_whatsapp_connection.automation.on_document_submit"},
+    "Customer": {"validate": "erpnext_whatsapp_connection.automation.validate_customer_consent_changes"},
+}
+
 after_install = "erpnext_whatsapp_connection.install.after_install"
 after_migrate = "erpnext_whatsapp_connection.install.after_migrate"
 

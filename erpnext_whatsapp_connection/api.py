@@ -245,10 +245,10 @@ def preview_document_pdf(doctype: str, name: str, print_format: str = "Standard"
     frappe.local.response.type = "pdf"
 
 
-def _store_delivery(*, reference_type, recipient, message, pdf, filename, company=None, _copy_of=None, **values):
+def _store_delivery(*, reference_type, recipient, message, pdf, filename, company=None, _copy_of=None, include_group_copy=True, **values):
     settings = _settings()
     from erpnext_whatsapp_connection.company_groups import configured_group
-    copy_group = configured_group(settings, company) if not _copy_of else None
+    copy_group = configured_group(settings, company) if not _copy_of and include_group_copy else None
     history = frappe.get_doc(
         {
             "doctype": HISTORY_DOCTYPE,
@@ -287,7 +287,8 @@ def _store_delivery(*, reference_type, recipient, message, pdf, filename, compan
     result = {"name": history.name, "status": history.status}
     if copy_group:
         result['group_copy'] = _store_delivery(reference_type=reference_type, recipient=copy_group,
-            message=message, pdf=pdf, filename=filename, company=company, _copy_of=history.name, **values)
+            message=message, pdf=pdf, filename=filename, company=company, _copy_of=history.name,
+            include_group_copy=False, **values)
     return result
 
 
