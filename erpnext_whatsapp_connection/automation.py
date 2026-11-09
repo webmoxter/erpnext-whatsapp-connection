@@ -269,7 +269,7 @@ def reject_request(request_name: str):
 
 
 def dispatch_approved(request_name: str):
-    """Run inside Frappe's long queue; repeat calls are idempotent."""
+    """Run in the long queue; failed DB mutations must roll back together."""
     request = _locked_request(request_name)
     if request.status != "Approved" or request.delivery_history:
         return
@@ -277,47 +277,50 @@ def dispatch_approved(request_name: str):
         if request.delivery_mode == "Approval Required":
             if not request.approved_by or not is_manager(request.approved_by):
                 raise AutomationPolicyError("reviewer_no_longer_authorized")
-            # Verify both the originator and the reviewer, then render under
-            # the reviewer's current document permissions.
+            # Recheck originator access even though a manager approved it.
             _validate_request(request, request.requested_by)
             actor = request.approved_by
         else:
             actor = request.requested_by
         payload = _validate_request(request, actor, pdf=True)
-        with _acting_as(actor):
-            # Disable automatic group copies. Company group rules remain intact
-            # for manually approved sends; automation never expands recipients.
-            delivery = api._store_delivery(
-                reference_type="Document",
-                company=request.company,
-                reference_doctype=request.reference_doctype,
-                reference_name=request.reference_name,
-                recipient=payload["recipient"],
-                message=payload["message"],
-                message_template=payload["template_name"],
-                print_format=None if payload["print_format"] == "Standard" else payload["print_format"],
-                source_modified=payload["document"].modified,
-                pdf=payload["pdf"],
-                filename=(request.reference_doctype + "-" + request.reference_name + ".pdf").replace("/", "-"),
-                include_group_copy=False,
-            )
-        request.status = "Queued"
-        request.delivery_history = delivery["name"]
-        request.save(ignore_permissions=True)
     except AutomationPolicyError as exc:
         request.status = "Blocked"
         request.failure_reason = str(exc)
         request.save(ignore_permissions=True)
-    except Exception as exc:
-        # Do not persist recipients, message content or underlying provider
-        # diagnostics. Unexpected errors need operator review, not blind replay.
-        frappe.log_error(
-            "WhatsApp automation dispatch error (" + type(exc).__name__ + ")",
-            "WhatsApp automation",
-        )
+        return
+    except frappe.PermissionError:
         request.status = "Blocked"
-        request.failure_reason = "unexpected_dispatch_failure"
+        request.failure_reason = "permission_revoked"
         request.save(ignore_permissions=True)
+        return
+    except frappe.ValidationError:
+        request.status = "Blocked"
+        request.failure_reason = "document_invalid"
+        request.save(ignore_permissions=True)
+        return
+
+    # Do not catch exceptions after delivery insertion. RQ/Frappe must roll
+    # back both the inserted PDF/history and the request transition together.
+    # Committing a Blocked request after a partly inserted delivery could send
+    # an orphan message and defeat deterministic duplicate prevention.
+    with _acting_as(actor):
+        delivery = api._store_delivery(
+            reference_type="Document",
+            company=request.company,
+            reference_doctype=request.reference_doctype,
+            reference_name=request.reference_name,
+            recipient=payload["recipient"],
+            message=payload["message"],
+            message_template=payload["template_name"],
+            print_format=None if payload["print_format"] == "Standard" else payload["print_format"],
+            source_modified=payload["document"].modified,
+            pdf=payload["pdf"],
+            filename=(request.reference_doctype + "-" + request.reference_name + ".pdf").replace("/", "-"),
+            include_group_copy=False,
+        )
+    request.status = "Queued"
+    request.delivery_history = delivery["name"]
+    request.save(ignore_permissions=True)
 
 
 def recover_approved_requests():
