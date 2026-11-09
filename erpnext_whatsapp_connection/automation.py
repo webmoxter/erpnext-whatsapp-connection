@@ -165,6 +165,12 @@ def on_document_submit(doc, method=None):
     """Never interrupt an ERPNext submission for an optional notification."""
     if doc.doctype not in SUPPORTED or doc.docstatus != 1:
         return
+    # Payment Entry is also used for suppliers and outbound payments. Those
+    # must never create a customer notification request or noisy error logs.
+    if doc.doctype == "Payment Entry" and (
+        doc.get("party_type") != "Customer" or doc.get("payment_type") != "Receive"
+    ):
+        return
     try:
         settings = frappe.get_single("ERPNext WhatsApp Settings")
         rule = _rule(settings, doc.company, doc.doctype)
