@@ -28,6 +28,28 @@ Releases are published from signed semantic-version tags. GitHub release
 immutability, checksummed Python/source artifacts, a digest-pinned gateway image,
 and a machine-readable release manifest form the supported supply-chain contract.
 
+## Optional document notifications (Pilot-compatible Frappe integration)
+
+An **opt-in, disabled-by-default** automation layer can propose WhatsApp
+notifications when submitted **Sales Invoices** or customer-receipt
+**Payment Entries** meet a company-specific rule. Modes:
+
+- **Approval Required** (recommended): a WhatsApp manager reviews the exact
+  message and source document in **ERPNext WhatsApp Automation Request**,
+  then explicitly approves or rejects it.
+- **Send Automatically**: an administrator expressly enables this mode for a
+  particular company and supported document type.
+
+Both modes require recorded Customer consent, a validated linked recipient
+number, company/source permissions and current print access. Dispatch reuses
+the **existing** private PDF + durable outbound queue; the manual
+**Send by WhatsApp** actions and optional company group copies stay intact.
+No automation, backfill or live sends begin on installation.
+
+See [Pilot setup and automation guide](docs/PILOT_AUTOMATION.md). Frappe Pilot
+manages the application site, **not** the separate private WhatsApp gateway;
+transport connectivity must be configured and tested independently.
+
 ## Design boundary
 
 The Frappe app decides whether the current user may read, print, and send a
