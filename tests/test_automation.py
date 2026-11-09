@@ -198,6 +198,24 @@ class AutomationTests(unittest.TestCase):
         self.assertTrue(self.frappe.enqueue.call_args.kwargs["enqueue_after_commit"])
         self.assertEqual(self.frappe.enqueue.call_args.kwargs["queue"], "long")
 
+    def test_duplicate_submission_is_inert(self):
+        self.frappe.db.exists = lambda doctype, key: True
+        with mock.patch.object(self.auto, "_prepare_payload", return_value=payload()):
+            self.auto.on_document_submit(self.document())
+        self.assertEqual(self.created, [])
+        self.frappe.enqueue.assert_not_called()
+
+    def test_supplier_payment_entry_is_ignored(self):
+        doc = SimpleNamespace(
+            doctype="Payment Entry", docstatus=1, name="PAY-SYNTHETIC-1",
+            company="Test Company",
+            get=lambda key: {"party_type": "Supplier", "payment_type": "Pay"}.get(key),
+        )
+        with mock.patch.object(self.auto, "_prepare_payload", return_value=payload()):
+            self.auto.on_document_submit(doc)
+        self.assertEqual(self.created, [])
+        self.frappe.enqueue.assert_not_called()
+
     def test_missing_consent_never_queues_or_blocks_document(self):
         with mock.patch.object(
             self.auto, "_prepare_payload",
