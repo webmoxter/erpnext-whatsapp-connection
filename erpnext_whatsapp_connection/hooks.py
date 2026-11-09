@@ -21,6 +21,7 @@ doctype_js = {
 doc_events = {
     "Sales Invoice": {"on_submit": "erpnext_whatsapp_connection.automation.on_document_submit"},
     "Payment Entry": {"on_submit": "erpnext_whatsapp_connection.automation.on_document_submit"},
+    "Customer": {"validate": "erpnext_whatsapp_connection.automation.validate_customer_consent_changes"},
 }
 
 after_install = "erpnext_whatsapp_connection.install.after_install"
