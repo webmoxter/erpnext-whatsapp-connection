@@ -13,6 +13,9 @@
   "reference_name",
   "customer",
   "recipient_masked",
+  "message_preview",
+  "print_format",
+  "template_name",
   "phone_digest",
   "source_modified",
   "source_event",
@@ -81,6 +84,26 @@
    "fieldname": "recipient_masked",
    "label": "Recipient (masked)",
    "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "message_preview",
+   "label": "Message for approval",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "print_format",
+   "label": "Print Format",
+   "fieldtype": "Link",
+   "options": "Print Format",
+   "read_only": 1
+  },
+  {
+   "fieldname": "template_name",
+   "label": "Template",
+   "fieldtype": "Link",
+   "options": "ERPNext WhatsApp Message Template",
    "read_only": 1
   },
   {
