@@ -133,6 +133,34 @@ def _request_key(doctype: str, name: str) -> str:
     return "WA-AUTO-" + hashlib.sha256(data.encode()).hexdigest()[:32]
 
 
+def validate_customer_consent_changes(doc, method=None):
+    """Only authorized WhatsApp managers may record or alter customer consent.
+
+    Frappe enforces this server-side on Customer inserts and saves; merely
+    hiding the fields in Desk would not protect their values from API writes.
+    """
+    before = doc.get_doc_before_save()
+    changes = (
+        (cint(doc.get(OPT_IN)) != cint(before.get(OPT_IN)) if before else bool(cint(doc.get(OPT_IN)))),
+        (str(doc.get(AUTO_PHONE) or "") != str(before.get(AUTO_PHONE) or "")
+            if before else bool(str(doc.get(AUTO_PHONE) or ""))),
+        (str(doc.get(CONSENT_REFERENCE) or "") != str(before.get(CONSENT_REFERENCE) or "")
+            if before else bool(str(doc.get(CONSENT_REFERENCE) or ""))),
+    )
+    if any(changes) and not is_manager():
+        frappe.throw(
+            _("Only a WhatsApp manager can change automatic WhatsApp consent."),
+            frappe.PermissionError,
+        )
+    if cint(doc.get(OPT_IN)):
+        if not str(doc.get(CONSENT_REFERENCE) or "").strip():
+            frappe.throw(_("Record evidence of consent before enabling automatic WhatsApp."))
+        try:
+            api._normalize_number(doc.get(AUTO_PHONE))
+        except Exception:
+            frappe.throw(_("A valid international WhatsApp recipient is required for opt-in."))
+
+
 def on_document_submit(doc, method=None):
     """Never interrupt an ERPNext submission for an optional notification."""
     if doc.doctype not in SUPPORTED or doc.docstatus != 1:
