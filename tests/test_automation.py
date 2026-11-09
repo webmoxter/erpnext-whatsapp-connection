@@ -139,6 +139,31 @@ class AutomationTests(unittest.TestCase):
         request_json = json.loads(REQUEST.read_text())
         self.assertFalse(any(p.get("write") or p.get("create") for p in request_json["permissions"]))
 
+    def test_only_manager_may_record_opt_in(self):
+        self.frappe.throw = lambda message, error=None: (_ for _ in ()).throw(
+            (error or ValueError)(message)
+        )
+        empty = {
+            "erpnext_whatsapp_auto_opt_in": 0,
+            "erpnext_whatsapp_auto_phone": "",
+            "erpnext_whatsapp_auto_consent_reference": "",
+        }
+        empty_doc = SimpleNamespace(
+            get=lambda key: empty.get(key),
+            get_doc_before_save=lambda: None,
+        )
+        with mock.patch.object(self.auto, "is_manager", return_value=False):
+            self.auto.validate_customer_consent_changes(empty_doc)
+            values = dict(empty, erpnext_whatsapp_auto_opt_in=1,
+                erpnext_whatsapp_auto_phone="+15551234567",
+                erpnext_whatsapp_auto_consent_reference="CONSENT-EVIDENCE")
+            edited_doc = SimpleNamespace(
+                get=lambda key: values.get(key),
+                get_doc_before_save=lambda: None,
+            )
+            with self.assertRaises(self.frappe.PermissionError):
+                self.auto.validate_customer_consent_changes(edited_doc)
+
     def test_company_scoped_rules_and_duplicate_denial(self):
         self.assertIsNone(self.auto._rule(settings(enabled=0), "Test Company", "Sales Invoice"))
         self.assertIsNone(self.auto._rule(settings(), "Other Company", "Sales Invoice"))
