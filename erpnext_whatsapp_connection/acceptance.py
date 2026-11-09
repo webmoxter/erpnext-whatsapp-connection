@@ -8,6 +8,8 @@ REQUIRED_DOCTYPES = (
     "ERPNext WhatsApp Message Template",
     "ERPNext WhatsApp Delivery History",
     "ERPNext WhatsApp Company Group",
+    "ERPNext WhatsApp Automation Rule",
+    "ERPNext WhatsApp Automation Request",
 )
 REQUIRED_ROLES = ("ERPNext WhatsApp Manager", "ERPNext WhatsApp Sender")
 
@@ -30,7 +32,18 @@ def validate_installation():
         "ERPNext WhatsApp Message Template", {"name": "Default Sales Invoice"}
     ) != 1:
         frappe.throw("Default Sales Invoice message template is not idempotent")
-    frappe.get_single("ERPNext WhatsApp Settings")
+    settings = frappe.get_single("ERPNext WhatsApp Settings")
+    if settings.automation_enabled or settings.get("automation_rules"):
+        frappe.throw("Optional automation must be disabled on fresh installation")
+    if frappe.db.count("ERPNext WhatsApp Automation Request"):
+        frappe.throw("Fresh site must have no automation requests")
+    for field in (
+        "erpnext_whatsapp_auto_opt_in",
+        "erpnext_whatsapp_auto_phone",
+        "erpnext_whatsapp_auto_consent_reference",
+    ):
+        if not frappe.get_meta("Customer").has_field(field):
+            frappe.throw("Missing explicit customer automation consent field: " + field)
     validate_group_preservation()
     return {
         "app": "erpnext_whatsapp_connection",
@@ -38,6 +51,8 @@ def validate_installation():
         "roles": list(REQUIRED_ROLES),
         "repeat_migration": "passed",
         "company_group_settings_preserved": True,
+        "automation_disabled_by_default": True,
+        "customer_consent_fields": True,
     }
 
 
