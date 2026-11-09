@@ -1,0 +1,64 @@
+{
+ "doctype": "DocType",
+ "name": "ERPNext WhatsApp Automation Rule",
+ "module": "ERPNext WhatsApp Connection",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "enabled",
+  "company",
+  "document_type",
+  "delivery_mode",
+  "message_template",
+  "print_format"
+ ],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "label": "Enabled",
+   "fieldtype": "Check",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "label": "Company",
+   "fieldtype": "Link",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "document_type",
+   "label": "Document Type",
+   "fieldtype": "Select",
+   "options": "Sales Invoice\nPayment Entry",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "delivery_mode",
+   "label": "Delivery Mode",
+   "fieldtype": "Select",
+   "options": "Approval Required\nSend Automatically",
+   "default": "Approval Required",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "message_template",
+   "label": "Message Template",
+   "fieldtype": "Link",
+   "options": "ERPNext WhatsApp Message Template",
+   "description": "Optional: empty uses the adapter's default template."
+  },
+  {
+   "fieldname": "print_format",
+   "label": "Print Format",
+   "fieldtype": "Link",
+   "options": "Print Format",
+   "description": "Optional; defaults to Standard. Must be a format registered for the chosen DocType."
+  }
+ ],
+ "permissions": []
+}
